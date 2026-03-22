@@ -1,0 +1,1109 @@
+openapi: 3.1.0
+info:
+  title: Project Memory API
+  description: API for Project Memory — captures, organizes, and maintains contextual knowledge for workspaces.
+  version: 0.1.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # --- Pagination ---
+
+    PaginationParams:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: 1-indexed page number
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+
+    PaginatedResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    # --- Errors ---
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    # --- Auth ---
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [bearer]
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+
+    UserResponse:
+      type: object
+      required: [id, email, display_name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # --- Workspace ---
+
+    WorkspaceCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+
+    WorkspaceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+
+    WorkspaceResponse:
+      type: object
+      required: [id, owner_id, name, description, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # --- Memory Space ---
+
+    MemorySpaceCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+
+    MemorySpaceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, archived]
+
+    MemorySpaceResponse:
+      type: object
+      required: [id, workspace_id, name, description, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SummaryRequest:
+      type: object
+      required: [summary_type]
+      properties:
+        summary_type:
+          type: string
+          enum: [one_pager, recent_updates]
+
+    SummaryResponse:
+      type: object
+      required: [id, memory_space_id, summary_type, title, content, is_edited, record_ids_used, generated_at, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        memory_space_id:
+          type: string
+          format: uuid
+        summary_type:
+          type: string
+          enum: [one_pager, recent_updates]
+        title:
+          type: string
+        content:
+          type: string
+          description: Original AI-generated summary in markdown
+        is_edited:
+          type: boolean
+        edited_content:
+          type: string
+          nullable: true
+          description: User-modified version; null if not edited
+        record_ids_used:
+          type: array
+          items:
+            type: string
+            format: uuid
+        generated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    QueryRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+
+    QueryCitation:
+      type: object
+      required: [record_id, content, record_type]
+      properties:
+        record_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        record_type:
+          type: string
+          enum: [fact, event, decision, issue, question, preference, task, insight]
+
+    QueryResponse:
+      type: object
+      required: [answer, citations]
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueryCitation"
+
+    # --- Source ---
+
+    SourceCreateNote:
+      type: object
+      required: [source_type, title, content]
+      properties:
+        source_type:
+          type: string
+          enum: [note]
+        title:
+          type: string
+          maxLength: 500
+        content:
+          type: string
+
+    SourceResponse:
+      type: object
+      required: [id, memory_space_id, source_type, title, processing_status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        memory_space_id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+          enum: [note, document, transcript]
+        title:
+          type: string
+        processing_status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        processing_error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SourceContentDetail:
+      type: object
+      required: [content_text]
+      properties:
+        content_text:
+          type: string
+
+    SourceFileDetail:
+      type: object
+      required: [mime_type, size_bytes, original_filename]
+      properties:
+        mime_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        original_filename:
+          type: string
+
+    SourceDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/SourceResponse"
+        - type: object
+          properties:
+            content:
+              $ref: "#/components/schemas/SourceContentDetail"
+              nullable: true
+            file:
+              $ref: "#/components/schemas/SourceFileDetail"
+              nullable: true
+
+    SourceContentResponse:
+      type: object
+      required: [source_id, content_text]
+      properties:
+        source_id:
+          type: string
+          format: uuid
+        content_text:
+          type: string
+
+    # --- Memory Record ---
+
+    RecordCreate:
+      type: object
+      required: [record_type, content]
+      properties:
+        record_type:
+          type: string
+          enum: [fact, event, decision, issue, question, preference, task, insight]
+        content:
+          type: string
+        importance:
+          type: string
+          enum: [low, medium, high]
+        metadata:
+          type: object
+
+    RecordUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+        status:
+          type: string
+          enum: [active, tentative, outdated, archived]
+        importance:
+          type: string
+          enum: [low, medium, high]
+        metadata:
+          type: object
+
+    MemoryRecordResponse:
+      type: object
+      required: [id, memory_space_id, record_type, content, origin, status, confidence, importance, metadata, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        memory_space_id:
+          type: string
+          format: uuid
+        record_type:
+          type: string
+          enum: [fact, event, decision, issue, question, preference, task, insight]
+        content:
+          type: string
+        origin:
+          type: string
+          enum: [extracted, manual]
+        status:
+          type: string
+          enum: [active, tentative, outdated, archived]
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        importance:
+          type: string
+          enum: [low, medium, high]
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RecordSourceLinkResponse:
+      type: object
+      required: [id, record_id, source_id, source_title, source_type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        record_id:
+          type: string
+          format: uuid
+        source_id:
+          type: string
+          format: uuid
+        source_title:
+          type: string
+        source_type:
+          type: string
+          enum: [note, document, transcript]
+        evidence_text:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    PageSizeParam:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+    WorkspaceIdParam:
+      name: workspace_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MemorySpaceIdParam:
+      name: memory_space_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SourceIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RecordIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+paths:
+  # --- Auth ---
+
+  /auth/login:
+    get:
+      operationId: authLogin
+      summary: Initiate WorkOS SSO login
+      security: []
+      responses:
+        "302":
+          description: Redirect to WorkOS login page
+
+  /auth/callback:
+    get:
+      operationId: authCallback
+      summary: Handle WorkOS SSO callback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: authLogout
+      summary: Invalidate current session
+      responses:
+        "204":
+          description: Session invalidated
+
+  /auth/me:
+    get:
+      operationId: authMe
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --- Workspace ---
+
+  /workspaces:
+    post:
+      operationId: createWorkspace
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceCreate"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listWorkspaces
+      summary: List current user's workspaces
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: Paginated list of workspaces
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/WorkspaceResponse"
+
+  /workspaces/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      operationId: getWorkspace
+      summary: Get a workspace
+      responses:
+        "200":
+          description: Workspace detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateWorkspace
+      summary: Update a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceUpdate"
+      responses:
+        "200":
+          description: Updated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteWorkspace
+      summary: Soft delete a workspace
+      responses:
+        "204":
+          description: Workspace deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --- Memory Space ---
+
+  /workspaces/{workspace_id}/memory-spaces:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceIdParam"
+
+    post:
+      operationId: createMemorySpace
+      summary: Create a memory space within a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemorySpaceCreate"
+      responses:
+        "201":
+          description: Memory space created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySpaceResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listMemorySpaces
+      summary: List memory spaces in a workspace
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, archived]
+      responses:
+        "200":
+          description: Paginated list of memory spaces
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MemorySpaceResponse"
+
+  /memory-spaces/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      operationId: getMemorySpace
+      summary: Get a memory space
+      responses:
+        "200":
+          description: Memory space detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySpaceResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateMemorySpace
+      summary: Update a memory space
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemorySpaceUpdate"
+      responses:
+        "200":
+          description: Updated memory space
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySpaceResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteMemorySpace
+      summary: Soft delete a memory space
+      responses:
+        "204":
+          description: Memory space deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /memory-spaces/{id}/summarize:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      operationId: summarizeMemorySpace
+      summary: Generate a summary from memory records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SummaryRequest"
+      responses:
+        "200":
+          description: Generated summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummaryResponse"
+
+  /memory-spaces/{id}/query:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      operationId: queryMemorySpace
+      summary: Ask a natural language question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Answer with citations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+
+  # --- Source ---
+
+  /memory-spaces/{id}/sources:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      operationId: createSource
+      summary: Create a source (note via JSON or document via multipart)
+      description: |
+        For notes, send `application/json` with `source_type`, `title`, and `content`.
+        For documents, send `multipart/form-data` with `source_type`, `title`, and `file`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceCreateNote"
+          multipart/form-data:
+            schema:
+              type: object
+              required: [source_type, title, file]
+              properties:
+                source_type:
+                  type: string
+                  enum: [document]
+                title:
+                  type: string
+                  maxLength: 500
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listSources
+      summary: List sources in a memory space
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: source_type
+          in: query
+          schema:
+            type: string
+            enum: [note, document, transcript]
+        - name: processing_status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+      responses:
+        "200":
+          description: Paginated list of sources
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SourceResponse"
+
+  /sources/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SourceIdParam"
+
+    get:
+      operationId: getSource
+      summary: Get source detail with content and file metadata
+      responses:
+        "200":
+          description: Source detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceDetailResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteSource
+      summary: Soft delete a source and its children
+      responses:
+        "204":
+          description: Source deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sources/{id}/content:
+    parameters:
+      - $ref: "#/components/parameters/SourceIdParam"
+
+    get:
+      operationId: getSourceContent
+      summary: Get full text content of a source
+      responses:
+        "200":
+          description: Source content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceContentResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --- Memory Record ---
+
+  /memory-spaces/{id}/records:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      operationId: listRecords
+      summary: List and filter memory records
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: record_type
+          in: query
+          schema:
+            type: string
+            enum: [fact, event, decision, issue, question, preference, task, insight]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, tentative, outdated, archived]
+        - name: importance
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+      responses:
+        "200":
+          description: Paginated list of memory records
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MemoryRecordResponse"
+
+    post:
+      operationId: createRecord
+      summary: Create a manual memory record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordCreate"
+      responses:
+        "201":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryRecordResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /records/{id}:
+    parameters:
+      - $ref: "#/components/parameters/RecordIdParam"
+
+    get:
+      operationId: getRecord
+      summary: Get a memory record
+      responses:
+        "200":
+          description: Record detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryRecordResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateRecord
+      summary: Update a memory record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordUpdate"
+      responses:
+        "200":
+          description: Updated record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryRecordResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteRecord
+      summary: Soft delete a memory record
+      responses:
+        "204":
+          description: Record deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /records/{id}/sources:
+    parameters:
+      - $ref: "#/components/parameters/RecordIdParam"
+
+    get:
+      operationId: getRecordSources
+      summary: Get sources linked to a record (provenance)
+      responses:
+        "200":
+          description: List of source links
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RecordSourceLinkResponse"
