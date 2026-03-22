@@ -1,0 +1,71 @@
+---
+description: General clean code principles and process rules that apply to all files
+alwaysApply: true
+---
+
+# Clean Code Guidelines
+
+### 1. **Use Constants, Not Magic Numbers**
+
+- Replace hard-coded values with named constants.
+- Use clear, descriptive names that explain each constant’s purpose.
+- Define constants at the top of the file or in a dedicated constants module.
+
+### 2. **Meaningful Naming**
+
+- Choose names for variables, functions, and classes that clearly convey their intent and usage.
+- Avoid abbreviations unless they are standard and widely understood.
+- Names should answer: what it is, why it exists, and how it’s used.
+
+### 3. **Purposeful Comments**
+
+- Make code self-explanatory; comment only when necessary.
+- Use comments to explain _why_ a decision was made, not _what_ the code does.
+- Document complex algorithms, APIs, and any non-obvious behavior or side effects.
+
+### 4. **Single Responsibility Principle**
+
+- Each function, class, or module should do one thing, and do it well.
+- Keep functions small and focused; split them if they become too complex.
+
+### 5. **DRY (Don’t Repeat Yourself)**
+
+- Eliminate code duplication by extracting repeated logic into reusable functions or modules.
+- Maintain a single source of truth for shared data or logic.
+
+### 6. **Logical Structure**
+
+- Group related code together and organize files/folders hierarchically.
+- Use consistent and descriptive naming conventions for files and directories.
+
+### 7. **Encapsulation**
+
+- Hide internal implementation details; expose only clear, minimal interfaces.
+- Refactor nested or complex logic into well-named private/helper functions.
+
+### 8. **Maintain Code Quality**
+
+- Refactor regularly to improve code structure and readability.
+- Address technical debt promptly.
+- Leave the codebase cleaner than you found it.
+
+### 9. **Testing**
+
+- Write tests for new features and before fixing bugs.
+- Keep tests clear, concise, and maintainable.
+- Test for edge cases, failures, and error conditions.
+
+### 10. **Version Control Practices**
+
+- Use clear, descriptive commit messages.
+- Make small, focused commits.
+- Choose meaningful branch names that reflect the purpose of the work.
+
+---
+
+## **Process & Workflow Rules**
+
+- **Verify Information**: Always verify facts before presenting them. Do not speculate or assume.
+- **File-by-File Changes**: Propose and review changes one file at a time for easier code review.
+- **No Whitespace Suggestions**: Avoid suggesting changes that only affect whitespace.
+- **No Inventions**: Only propose changes explicitly requested or required; do not introduce unrequested changes.
