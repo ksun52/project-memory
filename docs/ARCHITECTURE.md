@@ -110,7 +110,7 @@ One-Pager Request → Filter/rank memory records → LLM Summarization → Outpu
 - **LLM Provider:** TBD (OpenAI or Anthropic)
 - **Embedding Model:** OpenAI text-embedding-3-small (tentative)
 - **Prompt Management:** Versioned prompt templates in code (`app/domains/ai/prompts/`)
-- **Detailed AI Pipeline Plan:** See [AI_PIPELINE.md](./AI_PIPELINE.md)
+- **Detailed AI Pipeline Plan:** See [AI_LAYER.md](./AI_LAYER.md)
 
 ---
 
@@ -208,7 +208,7 @@ One-Pager Request → Filter/rank memory records → LLM Summarization → Outpu
 - [x] Plan backend architecture — see [BACKEND.md](./BACKEND.md)
 - [x] Plan frontend architecture — see [FRONTEND.md](./FRONTEND.md)
 - [x] Define API contract — see [API_CONTRACT.md](./API_CONTRACT.md) and [openapi.yaml](./api/openapi.yaml)
-- [x] Design AI/LLM pipeline (high level) — see [AI_PIPELINE.md](./AI_PIPELINE.md)
+- [x] Design AI/LLM pipeline (high level) — see [AI_LAYER.md](./AI_LAYER.md)
 - [ ] Design extraction prompts (detailed)
 - [ ] Create example memory records across domains to validate schema
 - [ ] Wireframe key user flows
