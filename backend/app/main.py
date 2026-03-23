@@ -39,8 +39,10 @@ def health_check():
 
 from app.domains.auth.router import router as auth_router
 from app.domains.workspace.router import router as workspace_router
+from app.domains.memory_space.router import router as memory_space_router
 
 api_v1.include_router(auth_router)
 api_v1.include_router(workspace_router)
+api_v1.include_router(memory_space_router)
 
 app.include_router(api_v1)
