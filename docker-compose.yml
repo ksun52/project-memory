@@ -1,0 +1,21 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: project_memory_db
+    environment:
+      POSTGRES_USER: project_memory
+      POSTGRES_PASSWORD: project_memory
+      POSTGRES_DB: project_memory
+    ports:
+      - "5432:5432"
+    volumes:
+      - project_memory_pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U project_memory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  project_memory_pgdata:
