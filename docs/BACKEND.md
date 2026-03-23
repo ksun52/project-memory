@@ -121,11 +121,13 @@ All routes are prefixed with `/api/v1`.
 
 ## 4. Types Per Domain
 
-Each domain has three type categories:
+Each domain has three type categories, all consolidated into a single `models.py` file per domain:
 
 - **ORM Models** — SQLAlchemy models mapped directly to database tables
-- **Domain Entities** — Business logic representations; ORM data is transformed into entities immediately after querying
+- **Domain Entities** — Business logic representations (dataclasses); ORM data is transformed into entities immediately after querying
 - **DTOs (Schemas)** — Pydantic models for request validation and response serialization
+
+All three categories live in `models.py` to keep things simple — each domain has only 1-2 ORM models and a small number of entities/DTOs, so separate files would add friction without meaningful organization benefit.
 
 | Domain | ORM Models | Domain Entities | DTOs |
 |--------|-----------|----------------|------|
@@ -298,47 +300,36 @@ backend/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py          # Login, callback, logout, me
 │   │   │   ├── service.py         # WorkOS flow, token mgmt, user resolution, access checks
-│   │   │   ├── models.py          # User ORM
-│   │   │   ├── entities.py        # UserEntity
-│   │   │   └── schemas.py         # Auth request/response DTOs
+│   │   │   └── models.py          # User ORM + UserEntity + auth DTOs
 │   │   │
 │   │   ├── workspace/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py
 │   │   │   ├── service.py
-│   │   │   ├── models.py          # Workspace ORM
-│   │   │   ├── entities.py        # WorkspaceEntity
-│   │   │   └── schemas.py
+│   │   │   └── models.py          # Workspace ORM + WorkspaceEntity + DTOs
 │   │   │
 │   │   ├── memory_space/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py          # CRUD + summarize + query
 │   │   │   ├── service.py
-│   │   │   ├── models.py          # MemorySpace ORM
-│   │   │   ├── entities.py        # MemorySpaceEntity
-│   │   │   └── schemas.py         # Includes SummaryRequest/Response, QueryRequest/Response
+│   │   │   └── models.py          # MemorySpace ORM + entity + DTOs (incl. Summary/Query)
 │   │   │
 │   │   ├── source/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py
 │   │   │   ├── service.py         # Creation, parsing, chunking, file storage
-│   │   │   ├── models.py          # Source, SourceContent, SourceFile, SourceChunk ORM
-│   │   │   ├── entities.py
-│   │   │   └── schemas.py
+│   │   │   └── models.py          # Source/SourceContent/SourceFile/SourceChunk ORM + entities + DTOs
 │   │   │
 │   │   ├── memory/
 │   │   │   ├── __init__.py
 │   │   │   ├── router.py
 │   │   │   ├── service.py         # CRUD, bulk creation, provenance, filtering
-│   │   │   ├── models.py          # MemoryRecord, RecordSourceLink ORM
-│   │   │   ├── entities.py
-│   │   │   └── schemas.py
+│   │   │   └── models.py          # MemoryRecord/RecordSourceLink ORM + entities + DTOs
 │   │   │
 │   │   └── ai/
 │   │       ├── __init__.py
 │   │       ├── service.py         # Extraction, embedding, summarization, query/RAG
-│   │       ├── models.py          # Embedding, GeneratedSummary ORM
-│   │       ├── entities.py        # ExtractionOutput, ExtractedRecord, SummaryResult, etc.
+│   │       ├── models.py          # Embedding/GeneratedSummary ORM + AI domain entities
 │   │       └── prompts/
 │   │           ├── __init__.py
 │   │           ├── extraction.py

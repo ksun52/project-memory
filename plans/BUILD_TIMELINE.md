@@ -50,7 +50,7 @@ All 11 tables defined upfront (data model is fully specified and stable):
 - **Verify:** `npm run dev` starts, page loads
 
 ### 0.5 Auth Bypass for Development
-- `auth/entities.py`, `auth/schemas.py`, `auth/service.py` with `AUTH_BYPASS=true` mode returning a hardcoded dev user
+- `auth/models.py` (entities + schemas in same file), `auth/service.py` with `AUTH_BYPASS=true` mode returning a hardcoded dev user
 - `auth/router.py` — stub routes for login, callback, logout, me
 - Seed script inserting one dev user
 - **Verify:** Auth-protected endpoints callable without real JWT in bypass mode
@@ -61,14 +61,14 @@ All 11 tables defined upfront (data model is fully specified and stable):
 
 ### Backend Track A: Workspace Domain
 **Depends on:** Phase 0
-- entities.py, schemas.py, service.py (CRUD + ownership enforcement), router.py
+- models.py (add entity + schemas alongside ORM model), service.py (CRUD + ownership enforcement), router.py
 - Register in main.py
 - Tests
 - **Verify:** All 5 workspace endpoints work, ownership checks pass
 
 ### Backend Track B: Memory Space Domain (CRUD only)
 **Depends on:** Track A (workspace service for scoping)
-- entities.py, schemas.py, service.py (CRUD + workspace scoping + status lifecycle)
+- models.py (add entity + schemas alongside ORM model), service.py (CRUD + workspace scoping + status lifecycle)
 - router.py — CRUD endpoints only; `/summarize` and `/query` return 501 for now
 - Tests
 - **Verify:** Memory space CRUD works, workspace scoping enforced
@@ -105,21 +105,21 @@ All 11 tables defined upfront (data model is fully specified and stable):
 
 ### Backend Track F: Source Domain
 **Depends on:** Phase 1 backend
-- entities.py, schemas.py
+- models.py (add entities + schemas alongside ORM models)
 - service.py: create_note_source, create_document_source (with file storage + parsing), chunk_source_content, list/get/delete with cascade
 - router.py, tests
 - **Verify:** Note creation, document upload + parsing, chunking produces correct offsets
 
 ### Backend Track G: Memory Domain
 **Depends on:** Phase 1 backend (parallel with Track F)
-- entities.py, schemas.py
+- models.py (add entities + schemas alongside ORM models)
 - service.py: create_record (manual), bulk_create_records (from extraction), list with filters, get, update, delete, get_record_sources (provenance)
 - router.py, tests
 - **Verify:** Manual record CRUD, bulk creation, filtering, provenance links
 
 ### Backend Track H: AI Service + Extraction Process
 **Depends on:** Tracks F + G (needs their service interfaces), Track C (LLM + embedding clients)
-- `ai/entities.py` — ExtractedRecord, ExtractionOutput, SummaryResult, QueryResult, Citation
+- `ai/models.py` — add ExtractedRecord, ExtractionOutput, SummaryResult, QueryResult, Citation entities
 - `ai/prompts/extraction.py` — extraction prompt template with source-type variations, output schema, record type definitions
 - `ai/prompts/summarization.py` — summarization prompt templates (one_pager, recent_updates)
 - `ai/prompts/query.py` — RAG query prompt template with citation instructions
@@ -147,7 +147,7 @@ All 11 tables defined upfront (data model is fully specified and stable):
 
 ### Backend Track J: Summarize + Query Endpoints
 **Depends on:** Phase 2 backend
-- Complete memory_space/schemas.py with SummaryRequest/Response, QueryRequest/Response
+- Complete memory_space/models.py with SummaryResponse, QueryResponse DTOs
 - Implement summarize + query in Memory Space service (calls AI service with real OpenAI API)
 - Replace 501 stubs with real handlers
 - Tests
