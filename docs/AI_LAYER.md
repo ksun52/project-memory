@@ -491,6 +491,6 @@ The AI output contracts map cleanly to the existing data model with no schema ch
 | Confidence recalibration | Adjust confidence scores based on user feedback (edits, deletions) |
 | Streaming | Stream extraction records and query answers to frontend as they're generated |
 | Prompt optimization | A/B test prompt variants using `prompt_version` tracking |
-| Embedding model upgrades | Re-embed all entities when switching models (supported by `model_id` column) |
+| Embedding or LLM model upgrades | Re-embed all entities when switching models (supported by `model_id` column) |
 | Smarter chunking | Semantic chunking (split by topic/paragraph) instead of fixed-size |
 | Re-extraction | Re-run extraction on existing sources with updated prompts; handle record replacement |
