@@ -5,7 +5,15 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.database import Base, get_db
-from app.main import app
+from app.main import app as fastapi_app
+
+# Import all domain models so Base.metadata.create_all creates all tables
+import app.domains.auth.models  # noqa: F401
+import app.domains.workspace.models  # noqa: F401
+import app.domains.memory_space.models  # noqa: F401
+import app.domains.source.models  # noqa: F401
+import app.domains.memory.models  # noqa: F401
+import app.domains.ai.models  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.rsplit("/", 1)[0] + "/project_memory_test"
 
@@ -32,7 +40,7 @@ def client(db_session):
         finally:
             pass
 
-    app.dependency_overrides[get_db] = _override_get_db
-    with TestClient(app) as c:
+    fastapi_app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(fastapi_app) as c:
         yield c
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()

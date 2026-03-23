@@ -5,6 +5,14 @@ from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.middleware import RequestLoggingMiddleware, app_exception_handler
 
+# Import all domain models so SQLAlchemy can resolve relationships
+import app.domains.auth.models  # noqa: F401
+import app.domains.workspace.models  # noqa: F401
+import app.domains.memory_space.models  # noqa: F401
+import app.domains.source.models  # noqa: F401
+import app.domains.memory.models  # noqa: F401
+import app.domains.ai.models  # noqa: F401
+
 app = FastAPI(title="Project Memory", version="0.1.0")
 
 app.add_middleware(
@@ -29,8 +37,8 @@ def health_check():
     return {"status": "ok"}
 
 
-# Future domain routers:
-# from app.domains.auth.router import router as auth_router
-# api_v1.include_router(auth_router)
+from app.domains.auth.router import router as auth_router
+
+api_v1.include_router(auth_router)
 
 app.include_router(api_v1)
