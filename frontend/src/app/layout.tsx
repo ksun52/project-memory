@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { MswProvider } from "@/mocks/msw-provider";
 import { Providers } from "@/shared/components/providers";
 import "./globals.css";
 
@@ -29,7 +30,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-          <Providers>{children}</Providers>
+          <MswProvider>
+            <Providers>{children}</Providers>
+          </MswProvider>
         </body>
     </html>
   );
