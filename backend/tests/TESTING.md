@@ -50,3 +50,41 @@ Tests that need database access should accept `db_session`. Tests that hit API e
 1. Create test files under `tests/domains/` matching the pattern `test_<domain>.py`
 2. Use the `client` fixture for endpoint tests and `db_session` for direct DB tests
 3. Seed any required data in the test function itself (see `test_auth.py` for an example)
+
+## Manual Endpoint Testing
+
+Start the server, run migrations, and seed the dev user:
+
+```bash
+cd backend
+source .venv/bin/activate
+alembic upgrade head
+python -m scripts.seed_dev_user
+uvicorn app.main:app --reload
+```
+
+### Workspace Endpoints
+
+```bash
+# Create a workspace
+curl -s -X POST http://localhost:8000/api/v1/workspaces \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Workspace", "description": "Optional description"}' | python3 -m json.tool
+
+# List workspaces (with optional pagination)
+curl -s "http://localhost:8000/api/v1/workspaces?page=1&page_size=20" | python3 -m json.tool
+
+# Get a single workspace
+curl -s http://localhost:8000/api/v1/workspaces/{workspace_id} | python3 -m json.tool
+
+# Update a workspace (partial update — only send fields to change)
+curl -s -X PATCH http://localhost:8000/api/v1/workspaces/{workspace_id} \
+  -H "Content-Type: application/json" \
+  -d '{"name": "New Name"}' | python3 -m json.tool
+
+# Delete a workspace (soft delete, returns 204)
+curl -s -o /dev/null -w "Status: %{http_code}\n" \
+  -X DELETE http://localhost:8000/api/v1/workspaces/{workspace_id}
+```
+
+Replace `{workspace_id}` with the `id` from the create response.
