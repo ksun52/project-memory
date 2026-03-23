@@ -6,9 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError
-from app.domains.auth.entities import UserEntity
-from app.domains.auth.models import User
-from app.domains.auth.schemas import TokenResponse
+from app.domains.auth.models import TokenResponse, User, UserEntity
 
 DEV_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 

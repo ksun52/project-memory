@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 
 from app.domains.auth import service
-from app.domains.auth.entities import UserEntity
-from app.domains.auth.schemas import TokenResponse, UserResponse
+from app.domains.auth.models import TokenResponse, UserEntity, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
