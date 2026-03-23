@@ -313,6 +313,36 @@ Work is on the `phase-0/foundation` branch in a git worktree at `../project-memo
 
 **Verify:** Run seed script → `GET /api/v1/auth/me` returns dev user. All auth tests pass.
 
+### Sprint 0.5 Manual Verification
+
+With Postgres running (`docker compose up -d`) and venv active:
+
+```bash
+# 1. Run migrations and seed dev user
+alembic upgrade head
+python -m scripts.seed_dev_user
+
+# 2. Start server
+uvicorn app.main:app --reload
+
+# 3. Test each endpoint (in another terminal)
+curl localhost:8000/api/v1/auth/me
+# → {"id":"00000000-0000-0000-0000-000000000001","email":"dev@projectmemory.local","display_name":"Dev User","created_at":"..."}
+
+curl localhost:8000/api/v1/auth/login
+# → {"redirect_url":"/api/v1/auth/callback?code=dev"}
+
+curl "localhost:8000/api/v1/auth/callback?code=dev"
+# → {"access_token":"dev-token-bypass","token_type":"bearer","expires_in":3600}
+
+curl -X POST localhost:8000/api/v1/auth/logout -w "\n%{http_code}"
+# → 204
+
+# 4. Run automated tests
+pytest tests/ -v
+# → 4 passed
+```
+
 ---
 
 ## End-of-Phase Verification Checklist
