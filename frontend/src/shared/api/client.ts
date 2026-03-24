@@ -56,7 +56,7 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  get<T>(path: string, params?: { [key: string]: string | number | undefined }): Promise<T> {
     if (params) {
       const searchParams = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) {
