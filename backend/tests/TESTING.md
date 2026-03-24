@@ -88,3 +88,41 @@ curl -s -o /dev/null -w "Status: %{http_code}\n" \
 ```
 
 Replace `{workspace_id}` with the `id` from the create response.
+
+### Memory Space Endpoints
+
+Memory spaces are scoped to a workspace. Create/list use the workspace path; get/update/delete use the memory space id directly.
+
+```bash
+# Create a memory space within a workspace
+curl -s -X POST http://localhost:8000/api/v1/workspaces/{workspace_id}/memory-spaces \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Space", "description": "Optional description"}' | python3 -m json.tool
+
+# List memory spaces (with optional status filter and pagination)
+curl -s "http://localhost:8000/api/v1/workspaces/{workspace_id}/memory-spaces?status=active&page=1&page_size=20" | python3 -m json.tool
+
+# Get a single memory space
+curl -s http://localhost:8000/api/v1/memory-spaces/{memory_space_id} | python3 -m json.tool
+
+# Update a memory space (partial update — name, description, and/or status)
+curl -s -X PATCH http://localhost:8000/api/v1/memory-spaces/{memory_space_id} \
+  -H "Content-Type: application/json" \
+  -d '{"status": "archived"}' | python3 -m json.tool
+
+# Delete a memory space (soft delete, returns 204)
+curl -s -o /dev/null -w "Status: %{http_code}\n" \
+  -X DELETE http://localhost:8000/api/v1/memory-spaces/{memory_space_id}
+
+# Summarize (stub — returns 501)
+curl -s -X POST http://localhost:8000/api/v1/memory-spaces/{memory_space_id}/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"summary_type": "one_pager"}' | python3 -m json.tool
+
+# Query (stub — returns 501)
+curl -s -X POST http://localhost:8000/api/v1/memory-spaces/{memory_space_id}/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is this project about?"}' | python3 -m json.tool
+```
+
+Replace `{workspace_id}` and `{memory_space_id}` with ids from create responses. Valid status values: `active`, `archived`. Valid summary types: `one_pager`, `recent_updates`.
