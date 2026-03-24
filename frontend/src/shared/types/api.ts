@@ -12,7 +12,7 @@ export interface ApiError {
   };
 }
 
-export interface PaginationParams {
+export type PaginationParams = {
   page?: number;
   page_size?: number;
 }

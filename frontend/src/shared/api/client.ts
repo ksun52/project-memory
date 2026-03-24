@@ -56,7 +56,19 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get<T>(path: string): Promise<T> {
+  get<T>(path: string, params?: { [key: string]: string | number | undefined }): Promise<T> {
+    if (params) {
+      const searchParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined) {
+          searchParams.set(key, String(value));
+        }
+      }
+      const qs = searchParams.toString();
+      if (qs) {
+        path = `${path}?${qs}`;
+      }
+    }
     return request<T>("GET", path);
   },
 
