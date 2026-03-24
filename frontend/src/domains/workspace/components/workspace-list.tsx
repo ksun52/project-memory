@@ -5,6 +5,7 @@ import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/shared/components/empty-state";
 import { ListSkeleton } from "@/shared/components/loading-skeleton";
+import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { usePagination } from "@/shared/hooks/use-pagination";
 import { useWorkspaces, useDeleteWorkspace, useUpdateWorkspace } from "../hooks";
 import { WorkspaceCard } from "./workspace-card";
@@ -18,11 +19,16 @@ export function WorkspaceList() {
   const updateMutation = useUpdateWorkspace();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
+  const [deletingWorkspace, setDeletingWorkspace] = useState<Workspace | null>(null);
 
   function handleDelete(workspace: Workspace) {
-    if (confirm(`Delete "${workspace.name}"? This cannot be undone.`)) {
-      deleteMutation.mutate(workspace.id);
+    setDeletingWorkspace(workspace);
+  }
+
+  function handleConfirmDelete() {
+    if (deletingWorkspace) {
+      deleteMutation.mutate(deletingWorkspace.id);
+      setDeletingWorkspace(null);
     }
   }
 
@@ -96,6 +102,14 @@ export function WorkspaceList() {
           </Button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deletingWorkspace !== null}
+        onOpenChange={(open) => !open && setDeletingWorkspace(null)}
+        title="Delete workspace"
+        description={`Are you sure you want to delete "${deletingWorkspace?.name}"? This action cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

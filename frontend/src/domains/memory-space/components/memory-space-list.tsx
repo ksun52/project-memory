@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/shared/components/empty-state";
 import { ListSkeleton } from "@/shared/components/loading-skeleton";
+import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { usePagination } from "@/shared/hooks/use-pagination";
 import {
   useMemorySpaces,
@@ -37,10 +38,16 @@ export function MemorySpaceList({ workspaceId }: MemorySpaceListProps) {
   const updateMutation = useUpdateMemorySpace();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [deletingMemorySpace, setDeletingMemorySpace] = useState<MemorySpace | null>(null);
 
   function handleDelete(memorySpace: MemorySpace) {
-    if (confirm(`Delete "${memorySpace.name}"? This cannot be undone.`)) {
-      deleteMutation.mutate(memorySpace.id);
+    setDeletingMemorySpace(memorySpace);
+  }
+
+  function handleConfirmDelete() {
+    if (deletingMemorySpace) {
+      deleteMutation.mutate(deletingMemorySpace.id);
+      setDeletingMemorySpace(null);
     }
   }
 
@@ -143,6 +150,14 @@ export function MemorySpaceList({ workspaceId }: MemorySpaceListProps) {
           </Button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deletingMemorySpace !== null}
+        onOpenChange={(open) => !open && setDeletingMemorySpace(null)}
+        title="Delete memory space"
+        description={`Are you sure you want to delete "${deletingMemorySpace?.name}"? This action cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
