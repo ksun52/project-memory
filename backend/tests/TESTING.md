@@ -126,3 +126,63 @@ curl -s -X POST http://localhost:8000/api/v1/memory-spaces/{memory_space_id}/que
 ```
 
 Replace `{workspace_id}` and `{memory_space_id}` with ids from create responses. Valid status values: `active`, `archived`. Valid summary types: `one_pager`, `recent_updates`.
+
+### Integration Clients (Track C)
+
+No server needed — these run directly in the Python shell. From the `backend/` directory with the venv active:
+
+```bash
+python -c "
+from app.integrations.storage_client import storage_client
+from app.integrations.llm_client import llm_client
+from app.integrations.workos_client import workos_client
+print('All imports OK')
+"
+```
+
+#### LocalStorageClient — write, read, delete
+
+```bash
+python -c "
+from app.integrations.storage_client import LocalStorageClient
+import tempfile
+
+client = LocalStorageClient(tempfile.mkdtemp())
+key = 'space-1/source-1/test.txt'
+
+# Save
+path = client.save_file(key, b'hello world')
+print(f'Saved to: {path}')
+
+# Read
+print(f'Read back: {client.read_file(key)}')
+
+# Exists
+print(f'Exists: {client.file_exists(key)}')
+
+# Delete
+client.delete_file(key)
+print(f'Exists after delete: {client.file_exists(key)}')
+"
+```
+
+#### LLM & WorkOS stubs — confirm NotImplementedError
+
+```bash
+python -c "
+import asyncio
+from app.integrations.llm_client import llm_client
+try:
+    asyncio.run(llm_client.extract('test', 'note'))
+except NotImplementedError as e:
+    print(f'LLM stub OK: {e}')
+"
+
+python -c "
+from app.integrations.workos_client import workos_client
+try:
+    workos_client.get_authorization_url()
+except NotImplementedError as e:
+    print(f'WorkOS stub OK: {e}')
+"
+```
