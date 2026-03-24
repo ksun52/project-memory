@@ -60,11 +60,11 @@ export function MemorySpaceCard({
               <span className="sr-only">Actions</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => onEdit(memorySpace)}>
+              <DropdownMenuItem onClick={() => onEdit(memorySpace)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onToggleStatus(memorySpace)}>
+              <DropdownMenuItem onClick={() => onToggleStatus(memorySpace)}>
                 {isArchived ? (
                   <>
                     <RotateCcw className="h-4 w-4 mr-2" />
@@ -78,7 +78,7 @@ export function MemorySpaceCard({
                 )}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() => onDelete(memorySpace)}
+                onClick={() => onDelete(memorySpace)}
                 className="text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />

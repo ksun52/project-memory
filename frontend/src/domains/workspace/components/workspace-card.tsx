@@ -47,13 +47,13 @@ export function WorkspaceCard({ workspace, onEdit, onDelete }: WorkspaceCardProp
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onSelect={() => onEdit(workspace)}
+                onClick={() => onEdit(workspace)}
               >
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() => onDelete(workspace)}
+                onClick={() => onDelete(workspace)}
                 className="text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
