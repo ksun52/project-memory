@@ -1,5 +1,10 @@
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Literal, Optional
 
+from pydantic import BaseModel, field_validator
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -83,3 +88,116 @@ class RecordSourceLink(Base):
         Index("idx_record_source_links_record_id", "record_id"),
         Index("idx_record_source_links_source_id", "source_id"),
     )
+
+
+# --- Domain Entities ---
+
+VALID_RECORD_TYPES = {"fact", "event", "decision", "issue", "question", "preference", "task", "insight"}
+VALID_STATUSES = {"active", "tentative", "outdated", "archived"}
+VALID_IMPORTANCES = {"low", "medium", "high"}
+
+
+@dataclass
+class MemoryRecordEntity:
+    id: uuid.UUID
+    memory_space_id: uuid.UUID
+    record_type: str
+    content: str
+    origin: str
+    status: str
+    confidence: Decimal
+    importance: str
+    metadata: dict
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_orm(cls, record: "MemoryRecord") -> "MemoryRecordEntity":
+        return cls(
+            id=record.id,
+            memory_space_id=record.memory_space_id,
+            record_type=record.record_type,
+            content=record.content,
+            origin=record.origin,
+            status=record.status,
+            confidence=record.confidence,
+            importance=record.importance,
+            metadata=record.record_metadata,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+
+@dataclass
+class RecordSourceLinkEntity:
+    id: uuid.UUID
+    record_id: uuid.UUID
+    source_id: uuid.UUID
+    evidence_text: Optional[str]
+    evidence_start_offset: Optional[int]
+    evidence_end_offset: Optional[int]
+    created_at: datetime
+
+    @classmethod
+    def from_orm(cls, link: "RecordSourceLink") -> "RecordSourceLinkEntity":
+        return cls(
+            id=link.id,
+            record_id=link.record_id,
+            source_id=link.source_id,
+            evidence_text=link.evidence_text,
+            evidence_start_offset=link.evidence_start_offset,
+            evidence_end_offset=link.evidence_end_offset,
+            created_at=link.created_at,
+        )
+
+
+# --- Pydantic Schemas ---
+
+
+class RecordCreate(BaseModel):
+    record_type: Literal["fact", "event", "decision", "issue", "question", "preference", "task", "insight"]
+    content: str
+    importance: Literal["low", "medium", "high"] = "medium"
+    metadata: dict = {}
+
+
+class RecordUpdate(BaseModel):
+    content: Optional[str] = None
+    status: Optional[Literal["active", "tentative", "outdated", "archived"]] = None
+    importance: Optional[Literal["low", "medium", "high"]] = None
+    metadata: Optional[dict] = None
+
+
+class RecordResponse(BaseModel):
+    id: uuid.UUID
+    memory_space_id: uuid.UUID
+    record_type: str
+    content: str
+    origin: str
+    status: str
+    confidence: Decimal
+    importance: str
+    metadata: dict
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RecordListResponse(BaseModel):
+    items: list[RecordResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class RecordSourceLinkResponse(BaseModel):
+    id: uuid.UUID
+    record_id: uuid.UUID
+    source_id: uuid.UUID
+    source_title: str
+    source_type: str
+    evidence_text: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
