@@ -437,6 +437,59 @@ def get_source_content(
     )
 
 
+# --- Internal (no auth, for background processes) ---
+
+
+def get_source_internal(db: Session, source_id: UUID) -> Source:
+    """Get source ORM object by ID without ownership check.
+
+    For internal use by background processes (e.g., extraction) that run
+    without a user context.
+    """
+    source = db.query(Source).filter(
+        Source.id == source_id,
+        Source.deleted_at.is_(None),
+    ).first()
+    if not source:
+        raise NotFoundError("Source not found")
+    return source
+
+
+def get_source_content_internal(db: Session, source_id: UUID) -> str:
+    """Get source content text by source_id without ownership check.
+
+    For internal use by background processes (e.g., extraction).
+    """
+    content = db.query(SourceContent).filter(
+        SourceContent.source_id == source_id,
+        SourceContent.deleted_at.is_(None),
+    ).first()
+    if not content:
+        raise NotFoundError("Source content not found")
+    return content.content_text
+
+
+def update_source_status(
+    db: Session,
+    source_id: UUID,
+    status: str,
+    error: Optional[str] = None,
+) -> None:
+    """Update source processing_status and optionally processing_error.
+
+    For internal use by background processes (e.g., extraction).
+    """
+    source = db.query(Source).filter(
+        Source.id == source_id,
+        Source.deleted_at.is_(None),
+    ).first()
+    if not source:
+        raise NotFoundError("Source not found")
+    source.processing_status = status
+    source.processing_error = error
+    db.commit()
+
+
 # --- Delete ---
 
 

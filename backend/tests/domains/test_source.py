@@ -760,3 +760,166 @@ class TestSourceRouter:
             json={"source_type": "note", "title": "No Content"},
         )
         assert resp.status_code == 422
+
+
+# ===== Internal Function Tests =====
+
+
+class TestGetSourceInternal:
+    def test_returns_source_orm(self, db_session):
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Internal Test",
+            processing_status="pending",
+        )
+        db_session.add(source)
+        db_session.commit()
+        db_session.refresh(source)
+
+        from app.domains.source.service import get_source_internal
+
+        result = get_source_internal(db_session, source.id)
+        assert result.id == source.id
+        assert result.memory_space_id == ms.id
+        assert result.title == "Internal Test"
+
+    def test_not_found(self, db_session):
+        from app.domains.source.service import get_source_internal
+        from app.core.exceptions import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            get_source_internal(db_session, uuid.uuid4())
+
+    def test_ignores_soft_deleted(self, db_session):
+        from sqlalchemy import func as sa_func
+
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Deleted",
+            processing_status="pending",
+        )
+        db_session.add(source)
+        db_session.commit()
+        source.deleted_at = sa_func.now()
+        db_session.commit()
+
+        from app.domains.source.service import get_source_internal
+        from app.core.exceptions import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            get_source_internal(db_session, source.id)
+
+
+class TestGetSourceContentInternal:
+    def test_returns_content_text(self, db_session):
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Content Test",
+            processing_status="pending",
+        )
+        db_session.add(source)
+        db_session.flush()
+
+        content = SourceContent(
+            source_id=source.id,
+            content_text="The quick brown fox.",
+        )
+        db_session.add(content)
+        db_session.commit()
+
+        from app.domains.source.service import get_source_content_internal
+
+        result = get_source_content_internal(db_session, source.id)
+        assert result == "The quick brown fox."
+
+    def test_not_found(self, db_session):
+        from app.domains.source.service import get_source_content_internal
+        from app.core.exceptions import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            get_source_content_internal(db_session, uuid.uuid4())
+
+
+class TestUpdateSourceStatus:
+    def test_updates_status(self, db_session):
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Status Test",
+            processing_status="pending",
+        )
+        db_session.add(source)
+        db_session.commit()
+        db_session.refresh(source)
+
+        from app.domains.source.service import update_source_status
+
+        update_source_status(db_session, source.id, "processing")
+        db_session.refresh(source)
+        assert source.processing_status == "processing"
+        assert source.processing_error is None
+
+    def test_updates_status_with_error(self, db_session):
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Error Test",
+            processing_status="processing",
+        )
+        db_session.add(source)
+        db_session.commit()
+        db_session.refresh(source)
+
+        from app.domains.source.service import update_source_status
+
+        update_source_status(db_session, source.id, "failed", "LLM timeout")
+        db_session.refresh(source)
+        assert source.processing_status == "failed"
+        assert source.processing_error == "LLM timeout"
+
+    def test_clears_error_on_success(self, db_session):
+        _seed_dev_user(db_session)
+        _, ms = _create_workspace_and_space(db_session)
+
+        source = Source(
+            memory_space_id=ms.id,
+            source_type="note",
+            title="Clear Error Test",
+            processing_status="failed",
+            processing_error="previous error",
+        )
+        db_session.add(source)
+        db_session.commit()
+        db_session.refresh(source)
+
+        from app.domains.source.service import update_source_status
+
+        update_source_status(db_session, source.id, "completed")
+        db_session.refresh(source)
+        assert source.processing_status == "completed"
+        assert source.processing_error is None
+
+    def test_not_found(self, db_session):
+        from app.domains.source.service import update_source_status
+        from app.core.exceptions import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            update_source_status(db_session, uuid.uuid4(), "processing")
