@@ -1,4 +1,6 @@
 import uuid
+from dataclasses import dataclass, field
+from typing import Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -73,3 +75,60 @@ class GeneratedSummary(TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_generated_summaries_memory_space_id", "memory_space_id"),
         Index("idx_generated_summaries_summary_type", "summary_type"),
     )
+
+
+# --- Domain Entities ---
+
+
+@dataclass
+class ExtractedRecord:
+    """A single memory record extracted from source content by the LLM."""
+
+    record_type: str
+    content: str
+    confidence: float
+    importance: str
+    evidence_text: Optional[str] = None
+
+
+@dataclass
+class ExtractionOutput:
+    """Result of running extraction on source content."""
+
+    records: list[ExtractedRecord] = field(default_factory=list)
+
+
+@dataclass
+class SummaryResult:
+    """Result of generating a summary from memory records."""
+
+    summary_type: str
+    title: str
+    content: str
+    record_ids_used: list[uuid.UUID] = field(default_factory=list)
+
+
+@dataclass
+class Citation:
+    """A citation linking an answer to a specific record or source."""
+
+    record_id: Optional[uuid.UUID] = None
+    source_id: Optional[uuid.UUID] = None
+    excerpt: str = ""
+
+
+@dataclass
+class QueryResult:
+    """Result of a RAG query against a memory space."""
+
+    answer: str
+    citations: list[Citation] = field(default_factory=list)
+
+
+@dataclass
+class EmbeddingResult:
+    """A generated embedding for a single entity."""
+
+    entity_type: str
+    entity_id: uuid.UUID
+    embedding: list[float] = field(default_factory=list)
