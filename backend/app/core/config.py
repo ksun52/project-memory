@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     STORAGE_PATH: str = "./storage"
     LOG_LEVEL: str = "info"
+    CHUNK_TARGET_CHARS: int = 4000
+    CHUNK_OVERLAP_CHARS: int = 400
 
     model_config = SettingsConfigDict(env_file=str(PROJECT_ROOT / ".env"))
 

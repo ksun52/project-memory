@@ -57,11 +57,10 @@ All errors return this shape:
 ```
 
 Standard HTTP status codes:
-- `400` — validation error
 - `401` — unauthenticated
 - `403` — forbidden (no access)
 - `404` — resource not found
-- `422` — unprocessable entity
+- `422` — validation error / unprocessable entity (FastAPI convention for malformed or invalid request bodies)
 - `500` — internal server error
 
 ### Soft Delete
