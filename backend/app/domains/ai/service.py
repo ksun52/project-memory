@@ -186,6 +186,9 @@ def store_embeddings(db: Session, results: list[EmbeddingResult]) -> None:
 
         if existing:
             existing.embedding = result.embedding
+            # TODO: embeddings table has no updated_at column — we overwrite
+            # created_at as a workaround. Add updated_at to embeddings schema
+            # in a future migration.
             existing.created_at = func.now()
         else:
             embedding = Embedding(
@@ -237,7 +240,8 @@ def summarize_memory_space(
         .order_by(importance_order, MemoryRecord.created_at.desc())
     )
 
-    records = query.all()
+    # Cap at 50 records to stay within LLM context window
+    records = query.limit(50).all()
 
     if not records:
         return SummaryResult(

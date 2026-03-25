@@ -1,6 +1,8 @@
 """Source domain service — business logic for creating, reading, and deleting sources."""
 
+import logging
 import re
+import threading
 from typing import Optional
 from uuid import UUID
 
@@ -10,6 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domains.memory.models import RecordSourceLink
+
+logger = logging.getLogger(__name__)
 from app.domains.memory_space.models import MemorySpace
 from app.domains.source.models import (
     Source,
@@ -101,6 +105,9 @@ def create_note_source(
     db.add(content)
     db.commit()
     db.refresh(source)
+
+    _trigger_extraction(source.id)
+
     return SourceEntity.from_orm(source)
 
 
@@ -156,7 +163,26 @@ def create_document_source(
 
     db.commit()
     db.refresh(source)
+
+    _trigger_extraction(source.id)
+
     return SourceEntity.from_orm(source)
+
+
+# --- Extraction trigger ---
+
+
+def _trigger_extraction(source_id: UUID) -> None:
+    """Launch extraction in a background thread with its own DB session."""
+    from app.processes.extraction import run_extraction
+
+    thread = threading.Thread(
+        target=run_extraction,
+        args=(source_id,),
+        daemon=True,
+    )
+    thread.start()
+    logger.info("Extraction thread started for source %s", source_id)
 
 
 # --- Parse ---
