@@ -110,10 +110,10 @@ class SummaryResult:
 
 @dataclass
 class Citation:
-    """A citation linking an answer to a specific record or source."""
+    """A citation linking an answer to a specific record or source chunk."""
 
     record_id: Optional[uuid.UUID] = None
-    source_id: Optional[uuid.UUID] = None
+    chunk_id: Optional[uuid.UUID] = None
     excerpt: str = ""
 
 

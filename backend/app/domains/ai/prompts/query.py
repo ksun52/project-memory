@@ -21,12 +21,15 @@ Return a JSON object with this exact structure:
   "answer": "Your answer in markdown format",
   "citations": [
     {
-      "record_id": "uuid-of-the-record",
-      "excerpt": "The specific part of the record that supports this point"
+      "record_id": "uuid-of-the-record-or-null",
+      "chunk_id": "uuid-of-the-source-chunk-or-null",
+      "excerpt": "The specific part of the record or chunk that supports this point"
     }
   ]
 }
 ```
+
+Use `record_id` when citing a memory record, `chunk_id` when citing a source chunk. At least one must be non-null.
 
 Return ONLY valid JSON. No markdown fences, no commentary outside the JSON.
 
@@ -41,4 +44,61 @@ Return ONLY valid JSON. No markdown fences, no commentary outside the JSON.
 """
 
 
-# TODO: build_query_prompt() will be added after prompt text is approved
+def build_query_prompt(
+    question: str,
+    records: list[dict],
+    chunks: list[dict],
+) -> list[dict]:
+    """Assemble the RAG query prompt as a list of OpenAI chat messages.
+
+    Args:
+        question: The user's natural language question.
+        records: List of memory record dicts (primary context) with id, record_type,
+            content, importance.
+        chunks: List of source chunk dicts (fallback context) with id, content,
+            source_id.
+
+    Returns:
+        List of message dicts with "role" and "content" keys.
+    """
+    # Build context sections
+    context_parts = []
+
+    if records:
+        record_lines = []
+        for rec in records:
+            rec_id = rec.get("id", "unknown")
+            rec_type = rec.get("record_type", "unknown")
+            importance = rec.get("importance", "medium")
+            content = rec.get("content", "")
+            record_lines.append(
+                f"- [record_id={rec_id}, type={rec_type}, importance={importance}] {content}"
+            )
+        context_parts.append(
+            "## Memory Records\n\n" + "\n".join(record_lines)
+        )
+
+    if chunks:
+        chunk_lines = []
+        for chunk in chunks:
+            chunk_id = chunk.get("id", "unknown")
+            content = chunk.get("content", "")
+            chunk_lines.append(
+                f"- [chunk_id={chunk_id}] {content}"
+            )
+        context_parts.append(
+            "## Source Chunks\n\n" + "\n".join(chunk_lines)
+        )
+
+    if not context_parts:
+        context_parts.append("No context available.")
+
+    user_content = (
+        "\n\n".join(context_parts)
+        + f"\n\n## Question\n\n{question}"
+    )
+
+    return [
+        {"role": "system", "content": QUERY_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

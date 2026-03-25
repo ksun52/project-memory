@@ -51,7 +51,9 @@ Use these sections as a guide but adapt to the actual content — skip empty sec
 
 Produce a summary focused on **what changed recently**:
 
-1. **New Decisions** — Choices made in the recent time window.
+The records provided represent the recent time window.
+
+1. **New Decisions** — Choices made recently.
 2. **Resolved Issues** — Problems that were addressed or closed.
 3. **New Issues & Risks** — Problems or concerns that emerged.
 4. **New Questions** — Open items that surfaced.
@@ -61,4 +63,43 @@ Focus on change and delta — what's different now versus before. Be concise. If
 }
 
 
-# TODO: build_summarization_prompt() will be added after prompt text is approved
+def build_summarization_prompt(
+    records: list[dict],
+    summary_type: str,
+) -> list[dict]:
+    """Assemble the summarization prompt as a list of OpenAI chat messages.
+
+    Args:
+        records: List of memory record dicts, each with record_type, content,
+            importance, and optionally id/confidence.
+        summary_type: One of "one_pager", "recent_updates".
+
+    Returns:
+        List of message dicts with "role" and "content" keys.
+    """
+    system_parts = [SUMMARIZATION_SYSTEM_PROMPT]
+
+    type_instruction = SUMMARY_TYPE_INSTRUCTIONS.get(summary_type)
+    if type_instruction:
+        system_parts.append(type_instruction)
+
+    # Format records as structured context for the LLM
+    record_lines = []
+    for i, rec in enumerate(records, 1):
+        rec_id = rec.get("id", "unknown")
+        rec_type = rec.get("record_type", "unknown")
+        importance = rec.get("importance", "medium")
+        content = rec.get("content", "")
+        record_lines.append(
+            f"[{i}] (id={rec_id}, type={rec_type}, importance={importance})\n{content}"
+        )
+
+    user_content = (
+        f"## Memory Records ({len(records)} total)\n\n"
+        + "\n\n".join(record_lines)
+    )
+
+    return [
+        {"role": "system", "content": "\n".join(system_parts)},
+        {"role": "user", "content": user_content},
+    ]

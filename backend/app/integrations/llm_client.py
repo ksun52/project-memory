@@ -1,83 +1,142 @@
-"""LLM client stub for AI-powered extraction, summarization, and querying.
+"""OpenAI client for LLM extraction, summarization, querying, and embeddings."""
 
-This module will be implemented in Phase 2 with OpenAI integration.
-All methods currently raise NotImplementedError.
-"""
-
+import json
+import logging
 from typing import Optional
+
+from openai import OpenAI
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+EMBEDDING_BATCH_SIZE = 100
+
 
 class LLMClient:
-    """Client for LLM operations (extraction, summarization, querying, embeddings)."""
+    """Client for OpenAI LLM and embedding operations."""
 
     def __init__(self, api_key: Optional[str] = None) -> None:
-        """Store the API key for future use. Does NOT initialize an OpenAI client yet.
-
-        Args:
-            api_key: OpenAI API key. Stored for when the client is implemented.
-        """
         self.api_key = api_key
+        self._client: Optional[OpenAI] = None
 
-    async def extract(self, content: str, source_type: str) -> dict:
-        """Extract structured memory records from raw source content.
+    @property
+    def client(self) -> OpenAI:
+        """Lazy-initialize the OpenAI client on first use."""
+        if self._client is None:
+            if not self.api_key:
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+            self._client = OpenAI(api_key=self.api_key)
+        return self._client
 
-        Will parse unstructured text and return categorized facts, decisions,
-        insights, and other memory record candidates.
-
-        Args:
-            content: Raw text content from a source.
-            source_type: Type of source (e.g. "note", "transcript", "document").
-
-        Returns:
-            A dict containing extracted memory records and metadata.
-        """
-        raise NotImplementedError("LLM extraction not yet implemented")
-
-    async def summarize(self, records: list[dict], summary_type: str) -> dict:
-        """Generate a summary from a list of memory records.
-
-        Will produce project one-pagers, recent update summaries, or
-        topic-specific summaries from structured memory records.
+    def chat_completion_json(
+        self, messages: list[dict], retry_on_parse_error: bool = True
+    ) -> dict:
+        """Call OpenAI chat completion and parse JSON response.
 
         Args:
-            records: List of memory record dicts to summarize.
-            summary_type: Type of summary (e.g. "one_pager", "recent_updates").
+            messages: List of message dicts with "role" and "content".
+            retry_on_parse_error: If True, retry once on malformed JSON.
 
         Returns:
-            A dict containing the generated summary and metadata.
+            Parsed JSON dict from the LLM response.
+
+        Raises:
+            ValueError: If the response is not valid JSON after retries.
         """
-        raise NotImplementedError("LLM summarization not yet implemented")
+        for attempt in range(2 if retry_on_parse_error else 1):
+            response = self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.2,
+            )
+            content = response.choices[0].message.content
+            if content is None:
+                if attempt == 0 and retry_on_parse_error:
+                    logger.warning("Empty LLM response, retrying")
+                    continue
+                raise ValueError("LLM returned empty response")
 
-    async def query(self, question: str, context: list[dict]) -> dict:
-        """Answer a natural language question using memory records as context.
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                if attempt == 0 and retry_on_parse_error:
+                    logger.warning("Malformed JSON from LLM, retrying")
+                    continue
+                raise ValueError(f"LLM returned invalid JSON: {content[:200]}")
 
-        Will use retrieval-augmented generation to answer user queries
-        based on stored memory records.
+        raise ValueError("LLM failed to return valid JSON after retries")
+
+    def extract(
+        self,
+        messages: list[dict],
+    ) -> dict:
+        """Run extraction via chat completion with JSON output.
 
         Args:
-            question: The user's natural language question.
-            context: List of relevant memory record dicts for context.
+            messages: Pre-built extraction prompt messages.
 
         Returns:
-            A dict containing the answer and source attributions.
+            Parsed dict with "records" key.
         """
-        raise NotImplementedError("LLM query not yet implemented")
+        return self.chat_completion_json(messages)
 
-    async def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
-        """Generate vector embeddings for a list of text strings.
+    def summarize(
+        self,
+        messages: list[dict],
+    ) -> dict:
+        """Run summarization via chat completion with JSON output.
 
-        Will produce embeddings for semantic search and similarity matching
-        across memory records.
+        Args:
+            messages: Pre-built summarization prompt messages.
+
+        Returns:
+            Parsed dict with "title" and "content" keys.
+        """
+        return self.chat_completion_json(messages)
+
+    def query(
+        self,
+        messages: list[dict],
+    ) -> dict:
+        """Run RAG query via chat completion with JSON output.
+
+        Args:
+            messages: Pre-built query prompt messages.
+
+        Returns:
+            Parsed dict with "answer" and "citations" keys.
+        """
+        return self.chat_completion_json(messages)
+
+    def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+        """Generate vector embeddings for a list of texts.
+
+        Batches at EMBEDDING_BATCH_SIZE (100) texts per API call.
 
         Args:
             texts: List of text strings to embed.
 
         Returns:
-            A list of embedding vectors (each a list of floats).
+            List of 1536-dim embedding vectors, one per input text.
         """
-        raise NotImplementedError("LLM embedding generation not yet implemented")
+        if not texts:
+            return []
+
+        all_embeddings: list[list[float]] = []
+
+        for i in range(0, len(texts), EMBEDDING_BATCH_SIZE):
+            batch = texts[i : i + EMBEDDING_BATCH_SIZE]
+            response = self.client.embeddings.create(
+                model=settings.EMBEDDING_MODEL,
+                input=batch,
+            )
+            # Response data is ordered by index
+            batch_embeddings = [item.embedding for item in response.data]
+            all_embeddings.extend(batch_embeddings)
+
+        return all_embeddings
 
 
 llm_client = LLMClient(settings.OPENAI_API_KEY)

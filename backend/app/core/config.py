@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     AUTH_BYPASS: bool = True
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
     STORAGE_PATH: str = "./storage"
     LOG_LEVEL: str = "info"
     CHUNK_TARGET_CHARS: int = 4000

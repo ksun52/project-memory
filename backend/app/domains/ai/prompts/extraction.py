@@ -1,5 +1,7 @@
 """Extraction prompt template for converting source content into structured memory records."""
 
+from typing import Optional
+
 EXTRACTION_PROMPT_VERSION = "extraction-v1"
 
 EXTRACTION_SYSTEM_PROMPT = """\
@@ -12,6 +14,8 @@ Read the provided source content and extract every meaningful piece of informati
 - **Self-contained**: readable and meaningful without the original source
 - **Specific**: prefer concrete details over vague summaries
 - **Non-trivial**: do not extract obvious, redundant, or filler information
+
+Be selective. Prefer 5-15 high-quality records over an exhaustive list of everything mentionable.
 
 ## Output Format
 
@@ -101,4 +105,36 @@ CHUNK_POSITION_INSTRUCTION = """
 You are reading **{position}** of the full source content. This is a fragment, not the complete text. Extract records only from what you see — do not speculate about content in other sections."""
 
 
-# TODO: build_extraction_prompt() will be added after prompt text is approved
+def build_extraction_prompt(
+    content: str,
+    source_type: str,
+    chunk_position: Optional[str] = None,
+) -> list[dict]:
+    """Assemble the extraction prompt as a list of OpenAI chat messages.
+
+    Args:
+        content: The source text to extract records from.
+        source_type: One of "note", "document", "transcript".
+        chunk_position: Optional position string like "section 2 of 4"
+            when processing chunked content.
+
+    Returns:
+        List of message dicts with "role" and "content" keys.
+    """
+    system_parts = [EXTRACTION_SYSTEM_PROMPT]
+
+    # Add source-type-specific instructions
+    type_instruction = SOURCE_TYPE_INSTRUCTIONS.get(source_type)
+    if type_instruction:
+        system_parts.append(type_instruction)
+
+    # Add chunk position context if processing a fragment
+    if chunk_position:
+        system_parts.append(
+            CHUNK_POSITION_INSTRUCTION.format(position=chunk_position)
+        )
+
+    return [
+        {"role": "system", "content": "\n".join(system_parts)},
+        {"role": "user", "content": content},
+    ]
