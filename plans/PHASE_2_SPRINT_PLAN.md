@@ -292,3 +292,5 @@ ORM models (Embedding, GeneratedSummary) already exist. Need to add domain entit
 - **TODO:** Record content edits do not re-generate embeddings. Embeddings become stale after PATCH updates to record content. Revisit in Phase 3 or post-MVP — options: re-embed on edit, batch re-embed job, or mark embedding as stale.
 - **TODO:** Add `reportlab` to test dependencies before Phase 3 integration testing so PDF parsing tests can generate test PDFs and run without skipping.
 - **TODO:** The `embeddings` table has no `updated_at` column. When upserting embeddings, we overwrite `created_at` as a workaround. Add an `updated_at` column to the embeddings table in a future migration.
+- **TODO (Frontend):** Add `onError` toast callbacks to all mutation hooks in `source/hooks.ts` and `memory/hooks.ts` so users get feedback when operations fail.
+- **TODO (Frontend):** Consider showing the provenance button on manual records in a disabled state, since manual records could have source links added later.

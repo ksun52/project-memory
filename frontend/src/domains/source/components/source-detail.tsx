@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, StickyNote, Mic } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -11,20 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSource } from "../hooks";
-import type { SourceType, ProcessingStatus } from "../types";
-
-const TYPE_ICONS: Record<SourceType, React.ReactNode> = {
-  note: <StickyNote className="h-4 w-4" />,
-  document: <FileText className="h-4 w-4" />,
-  transcript: <Mic className="h-4 w-4" />,
-};
-
-const STATUS_VARIANT: Record<ProcessingStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  pending: "outline",
-  processing: "secondary",
-  completed: "default",
-  failed: "destructive",
-};
+import { SOURCE_TYPE_ICONS, STATUS_VARIANT } from "../constants";
 
 interface SourceDetailProps {
   sourceId: string | null;
@@ -48,7 +35,7 @@ export function SourceDetail({ sourceId, open, onOpenChange }: SourceDetailProps
             <SheetHeader>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">
-                  {TYPE_ICONS[source.source_type]}
+                  {SOURCE_TYPE_ICONS[source.source_type]}
                 </span>
                 <SheetTitle>{source.title}</SheetTitle>
               </div>
@@ -80,6 +67,15 @@ export function SourceDetail({ sourceId, open, onOpenChange }: SourceDetailProps
                   {source.file.mime_type} &middot;{" "}
                   {formatBytes(source.file.size_bytes)}
                 </p>
+              </div>
+            )}
+
+            {source.linked_records_count !== undefined && source.linked_records_count > 0 && (
+              <div className="mx-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <ListChecks className="h-4 w-4" />
+                <span>
+                  {source.linked_records_count} linked record{source.linked_records_count !== 1 ? "s" : ""}
+                </span>
               </div>
             )}
 

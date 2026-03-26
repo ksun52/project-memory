@@ -3,6 +3,7 @@ import {
   seedSources,
   seedSourceContents,
   seedSourceFiles,
+  seedRecordSourceLinks,
   type MockSource,
   type MockSourceContent,
   type MockSourceFile,
@@ -29,12 +30,16 @@ function toDetailResponse(s: MockSource) {
   const base = toResponse(s);
   const content = sourceContents.find((c) => c.source_id === s.id) ?? null;
   const file = sourceFiles.find((f) => f.source_id === s.id);
+  const linked_records_count = seedRecordSourceLinks.filter(
+    (l) => l.source_id === s.id
+  ).length;
   return {
     ...base,
     content,
     file: file
       ? { mime_type: file.mime_type, size_bytes: file.size_bytes, original_filename: file.original_filename }
       : null,
+    linked_records_count,
   };
 }
 

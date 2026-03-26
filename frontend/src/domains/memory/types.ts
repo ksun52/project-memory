@@ -38,6 +38,7 @@ export interface RecordUpdate {
   content?: string;
   status?: RecordStatus;
   importance?: RecordImportance;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RecordSourceLink {

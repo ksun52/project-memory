@@ -1,29 +1,10 @@
 "use client";
 
-import { FileText, StickyNote, Mic, Trash2, Eye, Loader2 } from "lucide-react";
+import { Trash2, Eye, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Source, ProcessingStatus, SourceType } from "../types";
-
-const TYPE_ICONS: Record<SourceType, React.ReactNode> = {
-  note: <StickyNote className="h-4 w-4" />,
-  document: <FileText className="h-4 w-4" />,
-  transcript: <Mic className="h-4 w-4" />,
-};
-
-const STATUS_VARIANT: Record<ProcessingStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  pending: "outline",
-  processing: "secondary",
-  completed: "default",
-  failed: "destructive",
-};
-
-const STATUS_LABEL: Record<ProcessingStatus, string> = {
-  pending: "Pending",
-  processing: "Processing",
-  completed: "Completed",
-  failed: "Failed",
-};
+import { SOURCE_TYPE_ICONS, STATUS_VARIANT, STATUS_LABEL } from "../constants";
+import type { Source } from "../types";
 
 interface SourceCardProps {
   source: Source;
@@ -38,7 +19,7 @@ export function SourceCard({ source, onView, onDelete }: SourceCardProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
       <div className="text-muted-foreground">
-        {TYPE_ICONS[source.source_type]}
+        {SOURCE_TYPE_ICONS[source.source_type]}
       </div>
 
       <div className="flex-1 min-w-0">

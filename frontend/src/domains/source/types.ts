@@ -27,6 +27,7 @@ export interface SourceFile {
 export interface SourceDetail extends Source {
   content: SourceContent | null;
   file: SourceFile | null;
+  linked_records_count?: number;
 }
 
 export interface SourceCreateNote {
