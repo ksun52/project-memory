@@ -1,14 +1,23 @@
 "use client";
 
 import { use } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback } from "react";
 import { Brain, FileText, ListChecks, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Breadcrumbs } from "@/shared/components/breadcrumbs";
 import { PageHeader } from "@/shared/components/page-header";
 import { PageSkeleton } from "@/shared/components/loading-skeleton";
 import { useWorkspace } from "@/domains/workspace/hooks";
 import { useMemorySpace } from "@/domains/memory-space/hooks";
+import { useSources } from "@/domains/source/hooks";
+import { useRecords } from "@/domains/memory/hooks";
+import { SourceList } from "@/domains/source/components/source-list";
+import { RecordList } from "@/domains/memory/components/record-list";
+
+const VALID_TABS = ["sources", "records", "summary"] as const;
+type TabValue = (typeof VALID_TABS)[number];
 
 interface MemorySpaceDetailPageProps {
   params: Promise<{ workspaceId: string; memorySpaceId: string }>;
@@ -16,8 +25,31 @@ interface MemorySpaceDetailPageProps {
 
 export default function MemorySpaceDetailPage({ params }: MemorySpaceDetailPageProps) {
   const { workspaceId, memorySpaceId } = use(params);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabValue =
+    tabParam && VALID_TABS.includes(tabParam as TabValue)
+      ? (tabParam as TabValue)
+      : "sources";
+
+  const setActiveTab = useCallback(
+    (value: string | number | null) => {
+      if (value === null) return;
+      const tab = String(value);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tab);
+      router.replace(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
   const { data: workspace, isLoading: workspaceLoading } = useWorkspace(workspaceId);
   const { data: memorySpace, isLoading: memorySpaceLoading } = useMemorySpace(memorySpaceId);
+  const { data: sourcesData } = useSources(memorySpaceId, { page: 1, page_size: 1 });
+  const { data: recordsData } = useRecords(memorySpaceId, { page: 1, page_size: 1 });
 
   if (workspaceLoading || memorySpaceLoading) {
     return <PageSkeleton />;
@@ -26,6 +58,9 @@ export default function MemorySpaceDetailPage({ params }: MemorySpaceDetailPageP
   const workspaceName = workspace?.name ?? "Workspace";
   const memorySpaceName = memorySpace?.name ?? "Memory Space";
   const isArchived = memorySpace?.status === "archived";
+
+  const sourceCount = sourcesData?.total ?? 0;
+  const recordCount = recordsData?.total ?? 0;
 
   return (
     <div className="space-y-6">
@@ -48,57 +83,40 @@ export default function MemorySpaceDetailPage({ params }: MemorySpaceDetailPageP
         description={memorySpace?.description || "No description"}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <PlaceholderCard
-          icon={<FileText className="h-5 w-5 text-muted-foreground" />}
-          title="Sources"
-          description="Upload and manage source documents"
-        />
-        <PlaceholderCard
-          icon={<ListChecks className="h-5 w-5 text-muted-foreground" />}
-          title="Records"
-          description="View extracted memory records"
-        />
-        <PlaceholderCard
-          icon={<ScrollText className="h-5 w-5 text-muted-foreground" />}
-          title="Summary"
-          description="Generate project one-pagers"
-        />
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="sources">
+            <FileText className="h-4 w-4" />
+            Sources ({sourceCount})
+          </TabsTrigger>
+          <TabsTrigger value="records">
+            <ListChecks className="h-4 w-4" />
+            Records ({recordCount})
+          </TabsTrigger>
+          <TabsTrigger value="summary">
+            <ScrollText className="h-4 w-4" />
+            Summary
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <Brain className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium">Coming in Phase 2</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Sources, Records, and Summary tabs will be available here.
-          </p>
-        </CardContent>
-      </Card>
+        <TabsContent value="sources">
+          <SourceList memorySpaceId={memorySpaceId} />
+        </TabsContent>
+
+        <TabsContent value="records">
+          <RecordList memorySpaceId={memorySpaceId} />
+        </TabsContent>
+
+        <TabsContent value="summary">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Brain className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">Coming in Phase 3</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Summary generation and natural language queries will be available here.
+            </p>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
-  );
-}
-
-function PlaceholderCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <Card className="opacity-60">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          {icon}
-          <CardTitle className="text-base">{title}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
   );
 }
