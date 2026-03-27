@@ -6,6 +6,7 @@ orchestration and data persistence without making real API calls.
 
 import time
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -143,13 +144,24 @@ class TestAIEntities:
         assert output.records == []
 
     def test_summary_result(self):
+        now = datetime.now()
+        record_id = uuid.uuid4()
         result = SummaryResult(
+            id=uuid.uuid4(),
+            memory_space_id=uuid.uuid4(),
             summary_type="one_pager",
             title="Test",
             content="# Summary",
-            record_ids_used=[uuid.uuid4()],
+            is_edited=False,
+            edited_content=None,
+            record_ids_used=[record_id],
+            generated_at=now,
+            created_at=now,
+            updated_at=now,
         )
         assert result.summary_type == "one_pager"
+        assert result.is_edited is False
+        assert result.record_ids_used == [record_id]
 
     def test_citation_with_chunk_id(self):
         cit = Citation(
@@ -158,7 +170,17 @@ class TestAIEntities:
             excerpt="some text",
         )
         assert cit.record_id is None
+        assert cit.source_id is None
         assert cit.chunk_id is not None
+
+    def test_citation_with_source_id(self):
+        source_id = uuid.uuid4()
+        cit = Citation(
+            record_id=uuid.uuid4(),
+            source_id=source_id,
+            excerpt="evidence",
+        )
+        assert cit.source_id == source_id
 
     def test_query_result(self):
         result = QueryResult(answer="Test answer", citations=[])

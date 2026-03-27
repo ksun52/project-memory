@@ -244,12 +244,21 @@ def summarize_memory_space(
     records = query.limit(50).all()
 
     if not records:
-        return SummaryResult(
+        summary = GeneratedSummary(
+            memory_space_id=memory_space_id,
             summary_type=summary_type,
             title="No Records Available",
             content="There are no active memory records to summarize.",
+            is_edited=False,
             record_ids_used=[],
+            prompt_version=SUMMARIZATION_PROMPT_VERSION,
+            model_id=settings.OPENAI_MODEL,
+            generated_at=datetime.now(timezone.utc),
         )
+        db.add(summary)
+        db.commit()
+        db.refresh(summary)
+        return SummaryResult.from_orm(summary)
 
     # Convert to dicts for the prompt
     record_dicts = [
@@ -270,13 +279,6 @@ def summarize_memory_space(
     title = raw.get("title", f"{summary_type} summary")
     content = raw.get("content", "")
 
-    result = SummaryResult(
-        summary_type=summary_type,
-        title=title,
-        content=content,
-        record_ids_used=record_ids,
-    )
-
     # Persist to generated_summaries
     summary = GeneratedSummary(
         memory_space_id=memory_space_id,
@@ -293,7 +295,7 @@ def summarize_memory_space(
     db.commit()
     db.refresh(summary)
 
-    return result
+    return SummaryResult.from_orm(summary)
 
 
 # --- Query / RAG ---
@@ -321,7 +323,7 @@ def query_memory_space(
     Returns:
         QueryResult with answer and citations.
     """
-    from app.domains.memory.models import MemoryRecord
+    from app.domains.memory.models import MemoryRecord, RecordSourceLink
     from app.domains.source.models import SourceChunk
 
     # Step 1: Embed the question
@@ -368,6 +370,7 @@ def query_memory_space(
     )
 
     chunk_dicts = []
+    chunk_map: dict[uuid.UUID, SourceChunk] = {}
     if chunk_results:
         chunk_ids = [r[0] for r in chunk_results]
         chunks = (
@@ -392,9 +395,32 @@ def query_memory_space(
     messages = build_query_prompt(question, record_dicts, chunk_dicts)
     raw = llm_client.query(messages)
 
-    # Step 5: Parse response
+    # Step 5: Parse response and enrich citations with source_id
     answer = raw.get("answer", "")
     raw_citations = raw.get("citations", [])
+
+    # Collect record_ids from citations to batch-lookup source links
+    citation_record_ids = []
+    for cit in raw_citations:
+        if isinstance(cit, dict):
+            rid = _parse_uuid(cit.get("record_id"))
+            if rid:
+                citation_record_ids.append(rid)
+
+    # Build record_id → source_id mapping from RecordSourceLink
+    record_source_map: dict[uuid.UUID, uuid.UUID] = {}
+    if citation_record_ids:
+        links = (
+            db.query(RecordSourceLink.record_id, RecordSourceLink.source_id)
+            .filter(
+                RecordSourceLink.record_id.in_(citation_record_ids),
+                RecordSourceLink.deleted_at.is_(None),
+            )
+            .all()
+        )
+        for link_record_id, link_source_id in links:
+            if link_record_id not in record_source_map:
+                record_source_map[link_record_id] = link_source_id
 
     citations = []
     for cit in raw_citations:
@@ -405,9 +431,17 @@ def query_memory_space(
         chunk_id = _parse_uuid(cit.get("chunk_id"))
         excerpt = cit.get("excerpt", "")
 
+        # Derive source_id: from chunk if available, otherwise from record→source link
+        source_id = None
+        if chunk_id and chunk_id in chunk_map:
+            source_id = chunk_map[chunk_id].source_id
+        elif record_id and record_id in record_source_map:
+            source_id = record_source_map[record_id]
+
         citations.append(
             Citation(
                 record_id=record_id,
+                source_id=source_id,
                 chunk_id=chunk_id,
                 excerpt=excerpt,
             )

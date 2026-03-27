@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional
 
 from pgvector.sqlalchemy import Vector
@@ -102,10 +103,33 @@ class ExtractionOutput:
 class SummaryResult:
     """Result of generating a summary from memory records."""
 
+    id: uuid.UUID
+    memory_space_id: uuid.UUID
     summary_type: str
     title: str
     content: str
-    record_ids_used: list[uuid.UUID] = field(default_factory=list)
+    is_edited: bool
+    edited_content: Optional[str]
+    record_ids_used: list[uuid.UUID]
+    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_orm(cls, summary: "GeneratedSummary") -> "SummaryResult":
+        return cls(
+            id=summary.id,
+            memory_space_id=summary.memory_space_id,
+            summary_type=summary.summary_type,
+            title=summary.title,
+            content=summary.content,
+            is_edited=summary.is_edited,
+            edited_content=summary.edited_content,
+            record_ids_used=list(summary.record_ids_used or []),
+            generated_at=summary.generated_at,
+            created_at=summary.created_at,
+            updated_at=summary.updated_at,
+        )
 
 
 @dataclass
@@ -113,6 +137,7 @@ class Citation:
     """A citation linking an answer to a specific record or source chunk."""
 
     record_id: Optional[uuid.UUID] = None
+    source_id: Optional[uuid.UUID] = None
     chunk_id: Optional[uuid.UUID] = None
     excerpt: str = ""
 

@@ -387,13 +387,15 @@ Generate a summary from current memory records.
 
 ```json
 {
-  "summary_type": "one_pager"
+  "summary_type": "one_pager",
+  "regenerate": false
 }
 ```
 
 | Field | Type | Required | Values |
 |-------|------|----------|--------|
 | `summary_type` | string | Yes | `"one_pager"`, `"recent_updates"` |
+| `regenerate` | boolean | No (default `false`) | `true` to force regeneration, `false` to return cached if available |
 
 **Response:** `200 OK`
 
@@ -442,13 +444,15 @@ Ask a natural language question about the memory space.
   "citations": [
     {
       "record_id": "990e8400-e29b-41d4-a716-446655440000",
-      "content": "Decided to use vendor A for infrastructure",
-      "record_type": "decision"
+      "source_id": "bb0e8400-e29b-41d4-a716-446655440000",
+      "chunk_id": null,
+      "excerpt": "We decided to go with vendor A for all infrastructure needs"
     },
     {
       "record_id": "aa0e8400-e29b-41d4-a716-446655440000",
-      "content": "Team agreed on bi-weekly sprint cadence",
-      "record_type": "decision"
+      "source_id": "bb0e8400-e29b-41d4-a716-446655440000",
+      "chunk_id": null,
+      "excerpt": "Team agreed on bi-weekly sprint cadence going forward"
     }
   ]
 }

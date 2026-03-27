@@ -107,6 +107,7 @@ class MemorySpaceListResponse(BaseModel):
 
 class SummaryRequest(BaseModel):
     summary_type: str
+    regenerate: bool = False
 
     @field_validator("summary_type")
     @classmethod
@@ -116,5 +117,33 @@ class SummaryRequest(BaseModel):
         return v
 
 
+class SummaryResponse(BaseModel):
+    id: uuid.UUID
+    memory_space_id: uuid.UUID
+    summary_type: str
+    title: str
+    content: str
+    is_edited: bool
+    edited_content: Optional[str]
+    record_ids_used: list[uuid.UUID]
+    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class QueryRequest(BaseModel):
     question: str
+
+
+class CitationResponse(BaseModel):
+    record_id: Optional[uuid.UUID] = None
+    source_id: Optional[uuid.UUID] = None
+    chunk_id: Optional[uuid.UUID] = None
+    excerpt: str = ""
+
+
+class QueryResponse(BaseModel):
+    answer: str
+    citations: list[CitationResponse]

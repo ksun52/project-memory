@@ -319,7 +319,8 @@ Both searches are scoped to the memory space via joins.
 @dataclass
 class Citation:
     record_id: UUID | None    # if citing a memory record
-    source_id: UUID | None    # if citing a source chunk directly
+    source_id: UUID | None    # derived server-side — parent source for linking
+    chunk_id: UUID | None     # if citing a source chunk directly
     excerpt: str              # relevant snippet
 
 @dataclass
@@ -328,9 +329,13 @@ class QueryResult:
     citations: list[Citation]
 ```
 
+Note: `source_id` is **not returned by the LLM**. It is derived server-side after parsing citations:
+- If `chunk_id` is present: looked up from `source_chunks.source_id`
+- If `record_id` is present: looked up from `record_source_links.source_id`
+
 ### Mapping to Data Model
 
-Query results are **not persisted** — they are returned directly via the API. Citations reference existing `record_id` and `source_id` values that the frontend can use for provenance links.
+Query results are **not persisted** — they are returned directly via the API. Citations reference existing `record_id`, `source_id`, and `chunk_id` values that the frontend can use for provenance links.
 
 ### Query Prompt Requirements
 
