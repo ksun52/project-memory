@@ -1,6 +1,12 @@
 import uuid
+from unittest.mock import patch
 
+from app.domains.ai.models import Embedding
 from app.domains.auth.models import User
+from app.domains.memory.models import MemoryRecord, RecordSourceLink
+from app.domains.memory_space.models import MemorySpace
+from app.domains.source.models import Source, SourceChunk, SourceContent
+from app.domains.workspace.models import Workspace
 
 DEV_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
@@ -295,10 +301,321 @@ def test_query_empty_memory_space(client, db_session):
 def test_query_ownership(client, db_session):
     """Query rejects requests for memory spaces the user doesn't own."""
     _seed_dev_user(db_session)
-    import uuid
     fake_ms_id = str(uuid.uuid4())
     resp = client.post(
         f"/api/v1/memory-spaces/{fake_ms_id}/query",
         json={"question": "test"},
     )
     assert resp.status_code == 404
+
+
+# --- Tests with mocked AI service ---
+
+
+def _seed_full(db_session):
+    """Create user + workspace + memory space + source + records for AI tests."""
+    _seed_dev_user(db_session)
+    ws = Workspace(owner_id=DEV_USER_ID, name="Test WS", description="")
+    db_session.add(ws)
+    db_session.commit()
+    db_session.refresh(ws)
+
+    ms = MemorySpace(
+        workspace_id=ws.id, name="Test MS", description="", status="active"
+    )
+    db_session.add(ms)
+    db_session.commit()
+    db_session.refresh(ms)
+
+    source = Source(
+        memory_space_id=ms.id,
+        source_type="note",
+        title="Meeting Notes",
+        processing_status="completed",
+    )
+    db_session.add(source)
+    db_session.flush()
+
+    content = SourceContent(source_id=source.id, content_text="We decided to use Postgres.")
+    db_session.add(content)
+    db_session.flush()
+
+    record = MemoryRecord(
+        memory_space_id=ms.id,
+        record_type="decision",
+        content="Team decided to use Postgres with pgvector",
+        confidence=0.95,
+        importance="high",
+        origin="extracted",
+        status="active",
+        record_metadata={},
+    )
+    db_session.add(record)
+    db_session.flush()
+
+    link = RecordSourceLink(
+        record_id=record.id,
+        source_id=source.id,
+        evidence_text="We decided to use Postgres.",
+    )
+    db_session.add(link)
+    db_session.commit()
+    db_session.refresh(ms)
+    db_session.refresh(source)
+    db_session.refresh(record)
+    return ws, ms, source, record
+
+
+def test_summarize_with_records(client, db_session):
+    """Summarize with actual records calls LLM and returns valid SummaryResponse."""
+    ws, ms, source, record = _seed_full(db_session)
+
+    mock_llm_response = {
+        "title": "Project Overview",
+        "content": "## Key Decisions\n\nTeam uses Postgres with pgvector.",
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.summarize.return_value = mock_llm_response
+        resp = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/summarize",
+            json={"summary_type": "one_pager", "regenerate": True},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Project Overview"
+    assert "Postgres" in data["content"]
+    assert data["summary_type"] == "one_pager"
+    assert str(record.id) in data["record_ids_used"]
+    assert data["is_edited"] is False
+    assert data["id"] is not None
+    assert data["generated_at"] is not None
+
+
+def test_summarize_regenerate_bypasses_cache(client, db_session):
+    """regenerate=true creates a new summary even when cache exists."""
+    ws, ms, source, record = _seed_full(db_session)
+
+    mock_llm_response = {
+        "title": "Summary v1",
+        "content": "First version.",
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.summarize.return_value = mock_llm_response
+        resp1 = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/summarize",
+            json={"summary_type": "one_pager", "regenerate": True},
+        )
+
+    mock_llm_response_v2 = {
+        "title": "Summary v2",
+        "content": "Second version.",
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.summarize.return_value = mock_llm_response_v2
+        resp2 = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/summarize",
+            json={"summary_type": "one_pager", "regenerate": True},
+        )
+
+    assert resp1.json()["id"] != resp2.json()["id"]
+    assert resp2.json()["title"] == "Summary v2"
+
+
+def test_query_with_citations_and_source_id(client, db_session):
+    """Query returns citations with source_id populated."""
+    ws, ms, source, record = _seed_full(db_session)
+
+    # Create an embedding for the record so vector search can find it
+    embedding = Embedding(
+        entity_type="memory_record",
+        entity_id=record.id,
+        embedding=[0.01] * 1536,
+        model_id="text-embedding-3-small",
+    )
+    db_session.add(embedding)
+    db_session.commit()
+
+    mock_query_response = {
+        "answer": "The team decided to use Postgres with pgvector.",
+        "citations": [
+            {
+                "record_id": str(record.id),
+                "chunk_id": None,
+                "excerpt": "Team decided to use Postgres with pgvector",
+            }
+        ],
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.generate_embeddings.return_value = [[0.01] * 1536]
+        mock_llm.query.return_value = mock_query_response
+        resp = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/query",
+            json={"question": "What database are we using?"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "Postgres" in data["answer"]
+    assert len(data["citations"]) == 1
+    cit = data["citations"][0]
+    assert cit["record_id"] == str(record.id)
+    assert cit["source_id"] == str(source.id)
+    assert cit["excerpt"] == "Team decided to use Postgres with pgvector"
+
+
+# --- Integration tests (extraction → summarize/query) ---
+
+
+def _run_extraction(db_session, source):
+    """Run the extraction pipeline with mocked LLM."""
+    from app.processes.extraction import _run_extraction_pipeline
+
+    mock_extraction = {
+        "records": [
+            {
+                "record_type": "decision",
+                "content": "Team decided to use Postgres with pgvector",
+                "confidence": 0.95,
+                "importance": "high",
+                "evidence_text": "We decided to use Postgres.",
+            },
+        ]
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.extract.return_value = mock_extraction
+        mock_llm.generate_embeddings.return_value = [[0.01] * 1536] * 10
+        _run_extraction_pipeline(db_session, source.id)
+
+
+def test_integration_extract_then_summarize(client, db_session):
+    """Create source → extract → summarize references extracted records."""
+    _seed_dev_user(db_session)
+    ws = Workspace(owner_id=DEV_USER_ID, name="WS", description="")
+    db_session.add(ws)
+    db_session.commit()
+    db_session.refresh(ws)
+
+    ms = MemorySpace(
+        workspace_id=ws.id, name="MS", description="", status="active"
+    )
+    db_session.add(ms)
+    db_session.commit()
+    db_session.refresh(ms)
+
+    source = Source(
+        memory_space_id=ms.id,
+        source_type="note",
+        title="Notes",
+        processing_status="pending",
+    )
+    db_session.add(source)
+    db_session.flush()
+    content = SourceContent(
+        source_id=source.id,
+        content_text="We decided to use Postgres.",
+    )
+    db_session.add(content)
+    db_session.commit()
+    db_session.refresh(source)
+
+    _run_extraction(db_session, source)
+
+    # Verify extraction completed
+    db_session.refresh(source)
+    assert source.processing_status == "completed"
+
+    records = db_session.query(MemoryRecord).filter(
+        MemoryRecord.memory_space_id == ms.id,
+        MemoryRecord.deleted_at.is_(None),
+    ).all()
+    assert len(records) >= 1
+
+    # Now call summarize
+    mock_summary = {
+        "title": "Project Summary",
+        "content": "## Decisions\n\nPostgres with pgvector.",
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.summarize.return_value = mock_summary
+        resp = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/summarize",
+            json={"summary_type": "one_pager", "regenerate": True},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Project Summary"
+    assert len(data["record_ids_used"]) >= 1
+    # Verify extracted record IDs are in the summary
+    extracted_ids = {str(r.id) for r in records}
+    summary_ids = set(data["record_ids_used"])
+    assert extracted_ids & summary_ids  # at least one overlap
+
+
+def test_integration_extract_then_query(client, db_session):
+    """Create source → extract → query returns answer with source_id in citations."""
+    _seed_dev_user(db_session)
+    ws = Workspace(owner_id=DEV_USER_ID, name="WS", description="")
+    db_session.add(ws)
+    db_session.commit()
+    db_session.refresh(ws)
+
+    ms = MemorySpace(
+        workspace_id=ws.id, name="MS", description="", status="active"
+    )
+    db_session.add(ms)
+    db_session.commit()
+    db_session.refresh(ms)
+
+    source = Source(
+        memory_space_id=ms.id,
+        source_type="note",
+        title="Notes",
+        processing_status="pending",
+    )
+    db_session.add(source)
+    db_session.flush()
+    content = SourceContent(
+        source_id=source.id,
+        content_text="We decided to use Postgres.",
+    )
+    db_session.add(content)
+    db_session.commit()
+    db_session.refresh(source)
+
+    _run_extraction(db_session, source)
+
+    db_session.refresh(source)
+    assert source.processing_status == "completed"
+
+    # Get the extracted record for building mock response
+    record = db_session.query(MemoryRecord).filter(
+        MemoryRecord.memory_space_id == ms.id,
+        MemoryRecord.deleted_at.is_(None),
+    ).first()
+    assert record is not None
+
+    mock_query_result = {
+        "answer": "The team uses Postgres with pgvector.",
+        "citations": [
+            {
+                "record_id": str(record.id),
+                "chunk_id": None,
+                "excerpt": "Team decided to use Postgres with pgvector",
+            }
+        ],
+    }
+    with patch("app.domains.ai.service.llm_client") as mock_llm:
+        mock_llm.generate_embeddings.return_value = [[0.01] * 1536]
+        mock_llm.query.return_value = mock_query_result
+        resp = client.post(
+            f"/api/v1/memory-spaces/{ms.id}/query",
+            json={"question": "What database?"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["citations"]) == 1
+    assert data["citations"][0]["source_id"] == str(source.id)
+    assert data["citations"][0]["record_id"] == str(record.id)
