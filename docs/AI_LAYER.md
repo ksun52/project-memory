@@ -180,10 +180,8 @@ Generates one-pagers and recent update summaries from structured memory records.
 ```
 1. Receive request (memory_space_id, summary_type)
 2. Query memory_records (status='active') from the memory space
-3. Filter/rank records:
-   - one_pager: all active records, weighted by importance
-   - recent_updates: records created/updated within time window
-4. If too many records to fit in context, select by importance (high first) and recency
+3. Filter/rank records by importance (high first) and recency
+4. If too many records to fit in context, cap at 50 (importance-weighted)
 5. Build summarization prompt (records + type-specific instructions)
 6. Call LLM → receive markdown output
 7. Store in generated_summaries with record_ids_used, prompt_version, model_id
@@ -195,7 +193,8 @@ Generates one-pagers and recent update summaries from structured memory records.
 |-------|------|-------------|
 | `memory_space_id` | UUID | Which memory space to summarize |
 | `summary_type` | enum | `one_pager` or `recent_updates` |
-| `time_window` | duration (optional) | For `recent_updates` — how far back to look |
+
+> **MVP note:** No `time_window` filtering. Both summary types use all active records, ordered by importance and recency. Time-based filtering for `recent_updates` is deferred to post-MVP.
 
 ### Output Entity
 
@@ -230,8 +229,8 @@ Directly persisted into `generated_summaries` table. `model_id` and `prompt_vers
 
 ### Key Decisions
 
-- Summaries are always regenerated fresh from current records (not incremental)
-- Cached in `generated_summaries` — re-serve cached version until the user explicitly requests regeneration or records have changed
+- Cached in `generated_summaries` — the `/summarize` endpoint returns the most recent cached summary by default. A fresh LLM call only happens when the client sends `regenerate: true`.
+- Cache invalidation is user-initiated only (no automatic invalidation when records change for MVP).
 - One-pager format: structured sections (key facts, decisions, open questions, recent updates) — prompt-guided, output is freeform markdown
 
 ---
