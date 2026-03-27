@@ -5,6 +5,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.domains.ai import service as ai_service
+from app.domains.ai.models import GeneratedSummary, SummaryResult
 from app.domains.memory.models import MemoryRecord
 from app.domains.memory_space.models import (
     MemorySpace,
@@ -121,3 +123,44 @@ def delete_memory_space(
     ).update({"deleted_at": func.now()})
 
     db.commit()
+
+
+def get_cached_summary(
+    db: Session, memory_space_id: UUID, summary_type: str
+) -> Optional[SummaryResult]:
+    """Return the most recent cached summary for a memory space, or None."""
+    row = (
+        db.query(GeneratedSummary)
+        .filter(
+            GeneratedSummary.memory_space_id == memory_space_id,
+            GeneratedSummary.summary_type == summary_type,
+            GeneratedSummary.deleted_at.is_(None),
+        )
+        .order_by(GeneratedSummary.generated_at.desc())
+        .first()
+    )
+    if not row:
+        return None
+    return SummaryResult.from_orm(row)
+
+
+def summarize_memory_space(
+    db: Session,
+    memory_space_id: UUID,
+    owner_id: UUID,
+    summary_type: str,
+    regenerate: bool = False,
+) -> SummaryResult:
+    """Generate or return a cached summary for a memory space.
+
+    Returns cached summary by default. Set regenerate=True to force
+    a fresh LLM call.
+    """
+    _get_memory_space_orm(db, memory_space_id, owner_id)
+
+    if not regenerate:
+        cached = get_cached_summary(db, memory_space_id, summary_type)
+        if cached is not None:
+            return cached
+
+    return ai_service.summarize_memory_space(db, memory_space_id, summary_type)
