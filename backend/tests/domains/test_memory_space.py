@@ -219,10 +219,11 @@ def test_delete_memory_space_not_found(client, db_session):
     assert resp.status_code == 404
 
 
-# --- Stub endpoints ---
+# --- Summarize + Query endpoints ---
 
 
-def test_summarize_returns_501(client, db_session):
+def test_summarize_empty_memory_space(client, db_session):
+    """Summarize with no records returns a valid summary with 'no records' message."""
     _seed_dev_user(db_session)
     ws_id = _create_workspace(client).json()["id"]
     ms_id = _create_memory_space(client, ws_id).json()["id"]
@@ -231,20 +232,73 @@ def test_summarize_returns_501(client, db_session):
         f"/api/v1/memory-spaces/{ms_id}/summarize",
         json={"summary_type": "one_pager"},
     )
-    assert resp.status_code == 501
+    assert resp.status_code == 200
     data = resp.json()
-    assert data["error"]["code"] == "not_implemented"
+    assert data["summary_type"] == "one_pager"
+    assert data["title"] == "No Records Available"
+    assert data["memory_space_id"] == ms_id
+    assert data["is_edited"] is False
+    assert "id" in data
+    assert "generated_at" in data
 
 
-def test_query_returns_501(client, db_session):
+def test_summarize_returns_cached(client, db_session):
+    """Second call without regenerate returns the same cached summary."""
     _seed_dev_user(db_session)
     ws_id = _create_workspace(client).json()["id"]
     ms_id = _create_memory_space(client, ws_id).json()["id"]
 
-    resp = client.post(
-        f"/api/v1/memory-spaces/{ms_id}/query",
-        json={"question": "What is this project about?"},
+    resp1 = client.post(
+        f"/api/v1/memory-spaces/{ms_id}/summarize",
+        json={"summary_type": "one_pager"},
     )
-    assert resp.status_code == 501
+    resp2 = client.post(
+        f"/api/v1/memory-spaces/{ms_id}/summarize",
+        json={"summary_type": "one_pager"},
+    )
+    assert resp1.json()["id"] == resp2.json()["id"]
+
+
+def test_summarize_ownership(client, db_session):
+    """Summarize rejects requests for memory spaces the user doesn't own."""
+    _seed_dev_user(db_session)
+    import uuid
+    fake_ms_id = str(uuid.uuid4())
+    resp = client.post(
+        f"/api/v1/memory-spaces/{fake_ms_id}/summarize",
+        json={"summary_type": "one_pager"},
+    )
+    assert resp.status_code == 404
+
+
+def test_query_empty_memory_space(client, db_session):
+    """Query with no records/embeddings returns a valid response."""
+    _seed_dev_user(db_session)
+    ws_id = _create_workspace(client).json()["id"]
+    ms_id = _create_memory_space(client, ws_id).json()["id"]
+
+    from unittest.mock import patch
+    mock_result = {"answer": "No context available.", "citations": []}
+    with patch("app.integrations.llm_client.llm_client.query", return_value=mock_result), \
+         patch("app.integrations.llm_client.llm_client.generate_embeddings", return_value=[[0.0] * 1536]):
+        resp = client.post(
+            f"/api/v1/memory-spaces/{ms_id}/query",
+            json={"question": "What is this project about?"},
+        )
+    assert resp.status_code == 200
     data = resp.json()
-    assert data["error"]["code"] == "not_implemented"
+    assert "answer" in data
+    assert "citations" in data
+    assert isinstance(data["citations"], list)
+
+
+def test_query_ownership(client, db_session):
+    """Query rejects requests for memory spaces the user doesn't own."""
+    _seed_dev_user(db_session)
+    import uuid
+    fake_ms_id = str(uuid.uuid4())
+    resp = client.post(
+        f"/api/v1/memory-spaces/{fake_ms_id}/query",
+        json={"question": "test"},
+    )
+    assert resp.status_code == 404

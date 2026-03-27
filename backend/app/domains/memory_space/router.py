@@ -2,7 +2,6 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,12 +9,15 @@ from app.domains.auth.models import UserEntity
 from app.domains.auth.service import get_current_user
 from app.domains.memory_space import service
 from app.domains.memory_space.models import (
+    CitationResponse,
     MemorySpaceCreate,
     MemorySpaceListResponse,
     MemorySpaceResponse,
     MemorySpaceUpdate,
     QueryRequest,
+    QueryResponse,
     SummaryRequest,
+    SummaryResponse,
 )
 
 router = APIRouter(tags=["memory-spaces"])
@@ -89,7 +91,7 @@ def delete_memory_space(
     return Response(status_code=204)
 
 
-# --- Stub endpoints (501) ---
+# --- AI-powered endpoints ---
 
 
 @router.post("/memory-spaces/{memory_space_id}/summarize")
@@ -97,11 +99,12 @@ def summarize_memory_space(
     memory_space_id: UUID,
     data: SummaryRequest,
     current_user: UserEntity = Depends(get_current_user),
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content={"error": {"code": "not_implemented", "message": "Summarization not yet available"}},
+    db: Session = Depends(get_db),
+) -> SummaryResponse:
+    result = service.summarize_memory_space(
+        db, memory_space_id, current_user.id, data.summary_type, data.regenerate
     )
+    return SummaryResponse.model_validate(result, from_attributes=True)
 
 
 @router.post("/memory-spaces/{memory_space_id}/query")
@@ -109,8 +112,20 @@ def query_memory_space(
     memory_space_id: UUID,
     data: QueryRequest,
     current_user: UserEntity = Depends(get_current_user),
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=501,
-        content={"error": {"code": "not_implemented", "message": "Query not yet available"}},
+    db: Session = Depends(get_db),
+) -> QueryResponse:
+    result = service.query_memory_space(
+        db, memory_space_id, current_user.id, data.question
+    )
+    return QueryResponse(
+        answer=result.answer,
+        citations=[
+            CitationResponse(
+                record_id=c.record_id,
+                source_id=c.source_id,
+                chunk_id=c.chunk_id,
+                excerpt=c.excerpt,
+            )
+            for c in result.citations
+        ],
     )
