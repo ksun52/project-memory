@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.domains.ai import service as ai_service
-from app.domains.ai.models import GeneratedSummary, SummaryResult
+from app.domains.ai.models import GeneratedSummary, QueryResult, SummaryResult
 from app.domains.memory.models import MemoryRecord
 from app.domains.memory_space.models import (
     MemorySpace,
@@ -164,3 +164,14 @@ def summarize_memory_space(
             return cached
 
     return ai_service.summarize_memory_space(db, memory_space_id, summary_type)
+
+
+def query_memory_space(
+    db: Session,
+    memory_space_id: UUID,
+    owner_id: UUID,
+    question: str,
+) -> QueryResult:
+    """Answer a natural language question about a memory space."""
+    _get_memory_space_orm(db, memory_space_id, owner_id)
+    return ai_service.query_memory_space(db, memory_space_id, question)
