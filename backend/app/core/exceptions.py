@@ -11,6 +11,11 @@ class AppException(Exception):
         super().__init__(message)
 
 
+class UnauthorizedError(AppException):
+    def __init__(self, message: str = "Not authenticated"):
+        super().__init__(status_code=401, error_code="unauthorized", message=message)
+
+
 class NotFoundError(AppException):
     def __init__(self, message: str = "Resource not found"):
         super().__init__(status_code=404, error_code="not_found", message=message)

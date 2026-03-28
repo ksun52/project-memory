@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     WORKOS_API_KEY: Optional[str] = None
     WORKOS_CLIENT_ID: Optional[str] = None
     WORKOS_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/callback"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
