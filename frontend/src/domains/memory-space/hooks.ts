@@ -11,8 +11,15 @@ import {
   createMemorySpace,
   updateMemorySpace,
   deleteMemorySpace,
+  summarizeMemorySpace,
+  queryMemorySpace,
 } from "./api";
-import type { MemorySpaceCreate, MemorySpaceUpdate } from "./types";
+import type {
+  MemorySpaceCreate,
+  MemorySpaceUpdate,
+  SummaryRequest,
+  QueryRequest,
+} from "./types";
 
 export function useMemorySpaces(
   workspaceId: string,
@@ -72,6 +79,29 @@ export function useDeleteMemorySpace() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["memory-spaces"] });
       toast.success("Memory space deleted");
+    },
+  });
+}
+
+export function useSummarize() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: SummaryRequest }) =>
+      summarizeMemorySpace(id, data),
+    onSuccess: () => {
+      toast.success("Summary generated");
+    },
+    onError: () => {
+      toast.error("Failed to generate summary");
+    },
+  });
+}
+
+export function useMemorySpaceQuery() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: QueryRequest }) =>
+      queryMemorySpace(id, data),
+    onError: () => {
+      toast.error("Failed to process query");
     },
   });
 }

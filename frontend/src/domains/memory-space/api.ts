@@ -1,6 +1,14 @@
 import { apiClient } from "@/shared/api/client";
 import type { PaginatedResponse, PaginationParams } from "@/shared/types/api";
-import type { MemorySpace, MemorySpaceCreate, MemorySpaceUpdate } from "./types";
+import type {
+  MemorySpace,
+  MemorySpaceCreate,
+  MemorySpaceUpdate,
+  SummaryRequest,
+  GeneratedSummary,
+  QueryRequest,
+  QueryResponse,
+} from "./types";
 
 export function listMemorySpaces(
   workspaceId: string,
@@ -35,4 +43,21 @@ export function updateMemorySpace(
 
 export function deleteMemorySpace(id: string): Promise<void> {
   return apiClient.del(`/memory-spaces/${id}`);
+}
+
+export function summarizeMemorySpace(
+  id: string,
+  data: SummaryRequest
+): Promise<GeneratedSummary> {
+  return apiClient.post<GeneratedSummary>(
+    `/memory-spaces/${id}/summarize`,
+    data
+  );
+}
+
+export function queryMemorySpace(
+  id: string,
+  data: QueryRequest
+): Promise<QueryResponse> {
+  return apiClient.post<QueryResponse>(`/memory-spaces/${id}/query`, data);
 }
