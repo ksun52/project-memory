@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
 from app.domains.auth import service
-from app.domains.auth.models import TokenResponse, UserEntity, UserResponse
+from app.domains.auth.models import UserEntity, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -12,8 +15,9 @@ def login() -> dict:
 
 
 @router.get("/callback")
-def callback(code: str) -> TokenResponse:
-    return service.callback(code)
+def callback(code: str, db: Session = Depends(get_db)) -> RedirectResponse:
+    result = service.callback(code, db)
+    return RedirectResponse(url=result["redirect_url"], status_code=302)
 
 
 @router.post("/logout", status_code=204)

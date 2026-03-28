@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -8,7 +9,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError, UnauthorizedError
-from app.domains.auth.models import TokenResponse, User, UserEntity
+from app.domains.auth.models import User, UserEntity
+from app.integrations.workos_client import workos_client
+
+logger = logging.getLogger(__name__)
 
 DEV_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
@@ -71,21 +75,62 @@ def get_current_user(
 
 
 def login() -> dict:
+    """Return the authorization URL for the frontend to redirect to."""
     if settings.AUTH_BYPASS:
         return {"redirect_url": "/api/v1/auth/callback?code=dev"}
 
-    raise NotImplementedError("Real auth not yet implemented")
+    if not workos_client:
+        raise UnauthorizedError("WorkOS not configured")
+
+    url = workos_client.get_authorization_url()
+    return {"redirect_url": url}
 
 
-def callback(code: str) -> TokenResponse:
+def callback(code: str, db: Session) -> dict:
+    """Exchange auth code for user + JWT. Returns redirect info."""
     if settings.AUTH_BYPASS:
-        return TokenResponse(access_token="dev-token-bypass")
+        token = create_access_token(DEV_USER_ID)
+        return {
+            "redirect_url": f"{settings.FRONTEND_URL}/auth/callback?token={token}",
+            "token": token,
+        }
 
-    raise NotImplementedError("Real auth not yet implemented")
+    if not workos_client:
+        raise UnauthorizedError("WorkOS not configured")
+
+    profile = workos_client.authenticate_with_code(code)
+
+    user = (
+        db.query(User)
+        .filter(
+            User.auth_provider == "workos",
+            User.auth_provider_id == profile["id"],
+        )
+        .first()
+    )
+
+    if not user:
+        display = " ".join(
+            filter(None, [profile.get("first_name"), profile.get("last_name")])
+        ) or profile["email"]
+        user = User(
+            auth_provider="workos",
+            auth_provider_id=profile["id"],
+            email=profile["email"],
+            display_name=display,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        logger.info("Created new user %s for %s", user.id, user.email)
+
+    token = create_access_token(user.id)
+    return {
+        "redirect_url": f"{settings.FRONTEND_URL}/auth/callback?token={token}",
+        "token": token,
+    }
 
 
 def logout() -> None:
-    if settings.AUTH_BYPASS:
-        return
-
-    raise NotImplementedError("Real auth not yet implemented")
+    """MVP: logout is client-side only (discard token from localStorage)."""
+    return

@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     CORS_ORIGINS: str = "http://localhost:3000"
+    FRONTEND_URL: str = "http://localhost:3000"
     AUTH_BYPASS: bool = True
     WORKOS_API_KEY: Optional[str] = None
     WORKOS_CLIENT_ID: Optional[str] = None
