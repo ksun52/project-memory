@@ -15,8 +15,10 @@ import { useSources } from "@/domains/source/hooks";
 import { useRecords } from "@/domains/memory/hooks";
 import { SourceList } from "@/domains/source/components/source-list";
 import { RecordList } from "@/domains/memory/components/record-list";
+import { SummaryPanel } from "@/domains/memory-space/components/summary-panel";
+import { QueryPanel } from "@/domains/memory-space/components/query-panel";
 
-const VALID_TABS = ["sources", "records", "summary"] as const;
+const VALID_TABS = ["sources", "records", "summary", "ask"] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 interface MemorySpaceDetailPageProps {
@@ -97,6 +99,10 @@ export default function MemorySpaceDetailPage({ params }: MemorySpaceDetailPageP
             <ScrollText className="h-4 w-4" />
             Summary
           </TabsTrigger>
+          <TabsTrigger value="ask">
+            <Brain className="h-4 w-4" />
+            Ask
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sources">
@@ -108,13 +114,11 @@ export default function MemorySpaceDetailPage({ params }: MemorySpaceDetailPageP
         </TabsContent>
 
         <TabsContent value="summary">
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Brain className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Coming in Phase 3</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Summary generation and natural language queries will be available here.
-            </p>
-          </div>
+          <SummaryPanel memorySpaceId={memorySpaceId} />
+        </TabsContent>
+
+        <TabsContent value="ask">
+          <QueryPanel memorySpaceId={memorySpaceId} />
         </TabsContent>
       </Tabs>
     </div>
