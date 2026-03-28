@@ -11,6 +11,7 @@ python-multipart==0.0.*
 httpx==0.28.*
 openai==1.68.*
 pgvector==0.3.*
+workos==5.*
 
 # Dev
 pytest==8.3.*

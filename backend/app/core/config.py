@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     CORS_ORIGINS: str = "http://localhost:3000"
     AUTH_BYPASS: bool = True
+    WORKOS_API_KEY: Optional[str] = None
+    WORKOS_CLIENT_ID: Optional[str] = None
+    WORKOS_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/callback"
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     EMBEDDING_MODEL: str = "text-embedding-3-small"

@@ -1,23 +1,37 @@
-"""WorkOS client stub for authentication and user management.
+"""WorkOS client for authentication and user management.
 
-This module will be implemented in Phase 3 with WorkOS SSO/OAuth integration.
-All methods currently raise NotImplementedError.
+Wraps the WorkOS Python SDK for AuthKit-based login.
+Initialized lazily — returns None if WORKOS_API_KEY or WORKOS_CLIENT_ID are not set,
+allowing AUTH_BYPASS mode to work without WorkOS credentials.
 """
+
+import logging
+from typing import Optional
+
+from workos import WorkOSClient as _WorkOSClient
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class WorkOSClient:
-    """Client for WorkOS authentication operations."""
+    """Thin wrapper around the WorkOS SDK for auth operations."""
+
+    def __init__(self, api_key: str, client_id: str, redirect_uri: str) -> None:
+        self._client = _WorkOSClient(api_key=api_key, client_id=client_id)
+        self._redirect_uri = redirect_uri
 
     def get_authorization_url(self) -> str:
-        """Generate a WorkOS authorization URL for SSO login.
-
-        Will redirect users to the WorkOS-hosted login page
-        and return them to the app with an authorization code.
+        """Generate a WorkOS AuthKit authorization URL.
 
         Returns:
-            The authorization URL string.
+            The authorization URL to redirect the user to.
         """
-        raise NotImplementedError("WorkOS auth not yet implemented")
+        return self._client.user_management.get_authorization_url(
+            provider="authkit",
+            redirect_uri=self._redirect_uri,
+        )
 
     def authenticate_with_code(self, code: str) -> dict:
         """Exchange an authorization code for user credentials.
@@ -26,20 +40,48 @@ class WorkOSClient:
             code: The authorization code from the OAuth callback.
 
         Returns:
-            A dict containing access token and user profile info.
+            A dict with keys: id, email, first_name, last_name.
         """
-        raise NotImplementedError("WorkOS auth not yet implemented")
+        auth_response = self._client.user_management.authenticate_with_code(
+            code=code,
+        )
+        user = auth_response.user
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        }
 
-    def get_user_profile(self, access_token: str) -> dict:
-        """Retrieve the user profile for a given access token.
+    def get_user_profile(self, user_id: str) -> dict:
+        """Retrieve a user profile by WorkOS user ID.
 
         Args:
-            access_token: A valid WorkOS access token.
+            user_id: The WorkOS user ID.
 
         Returns:
-            A dict containing user profile fields (id, email, name, etc.).
+            A dict with keys: id, email, first_name, last_name.
         """
-        raise NotImplementedError("WorkOS auth not yet implemented")
+        user = self._client.user_management.get_user(user_id=user_id)
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+        }
 
 
-workos_client = WorkOSClient()
+def _init_workos_client() -> Optional[WorkOSClient]:
+    """Initialize the WorkOS client if credentials are configured."""
+    if settings.WORKOS_API_KEY and settings.WORKOS_CLIENT_ID:
+        logger.info("WorkOS client initialized")
+        return WorkOSClient(
+            api_key=settings.WORKOS_API_KEY,
+            client_id=settings.WORKOS_CLIENT_ID,
+            redirect_uri=settings.WORKOS_REDIRECT_URI,
+        )
+    logger.info("WorkOS credentials not set — auth bypass mode only")
+    return None
+
+
+workos_client: Optional[WorkOSClient] = _init_workos_client()
