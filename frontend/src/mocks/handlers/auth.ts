@@ -9,29 +9,10 @@ export const authHandlers = [
     return HttpResponse.json(DEV_USER);
   }),
 
-  // GET /auth/login
+  // GET /auth/login — return redirect URL with token directly (skips code exchange in MSW mode)
   http.get(`${BASE}/auth/login`, () => {
     return HttpResponse.json({
-      redirect_url: "/auth/callback?code=dev",
-    });
-  }),
-
-  // GET /auth/callback
-  http.get(`${BASE}/auth/callback`, ({ request }) => {
-    const url = new URL(request.url);
-    const code = url.searchParams.get("code");
-
-    if (!code) {
-      return HttpResponse.json(
-        { error: { code: "missing_code", message: "Code parameter is required" } },
-        { status: 400 }
-      );
-    }
-
-    return HttpResponse.json({
-      access_token: DEV_TOKEN,
-      token_type: "bearer",
-      expires_in: 3600,
+      redirect_url: `/auth/callback?token=${DEV_TOKEN}`,
     });
   }),
 

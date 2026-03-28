@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/api/client";
-import type { User, TokenResponse } from "./types";
+import type { User } from "./types";
 
 export function getMe(): Promise<User> {
   return apiClient.get<User>("/auth/me");
@@ -7,10 +7,6 @@ export function getMe(): Promise<User> {
 
 export function login(): Promise<{ redirect_url: string }> {
   return apiClient.get<{ redirect_url: string }>("/auth/login");
-}
-
-export function callback(code: string): Promise<TokenResponse> {
-  return apiClient.get<TokenResponse>(`/auth/callback?code=${encodeURIComponent(code)}`);
 }
 
 export function logout(): Promise<void> {

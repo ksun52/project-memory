@@ -23,14 +23,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("auth_token");
+    }
+    return null;
+  });
   const [authState, setAuthState] = useState<AuthState>("loading");
 
   const setToken = useCallback((newToken: string) => {
+    localStorage.setItem("auth_token", newToken);
     setTokenState(newToken);
   }, []);
 
   const clearAuth = useCallback(() => {
+    localStorage.removeItem("auth_token");
     setTokenState(null);
     setUser(null);
     setAuthState("unauthenticated");
@@ -39,13 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Wire token into the API client
   useEffect(() => {
     setTokenGetter(() => token);
-  }, [token]);
-
-  // On mount: in MSW/dev mode, auto-set a dev token
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_ENABLE_MSW === "true" && !token) {
-      setTokenState("dev-jwt-token-for-testing");
-    }
   }, [token]);
 
   // When token changes, validate it by calling /auth/me
