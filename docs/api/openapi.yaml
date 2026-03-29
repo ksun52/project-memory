@@ -64,18 +64,13 @@ components:
 
     # --- Auth ---
 
-    TokenResponse:
+    LoginResponse:
       type: object
-      required: [access_token, token_type, expires_in]
+      required: [redirect_url]
       properties:
-        access_token:
+        redirect_url:
           type: string
-        token_type:
-          type: string
-          enum: [bearer]
-        expires_in:
-          type: integer
-          description: Token lifetime in seconds
+          description: URL the frontend should navigate to (WorkOS login page or dev bypass callback)
 
     UserResponse:
       type: object
@@ -190,6 +185,10 @@ components:
         summary_type:
           type: string
           enum: [one_pager, recent_updates]
+        regenerate:
+          type: boolean
+          default: false
+          description: Force a fresh LLM call instead of returning a cached summary
 
     SummaryResponse:
       type: object
@@ -239,16 +238,21 @@ components:
 
     QueryCitation:
       type: object
-      required: [record_id, content, record_type]
       properties:
         record_id:
           type: string
           format: uuid
-        content:
+          nullable: true
+        source_id:
           type: string
-        record_type:
+          format: uuid
+          nullable: true
+        chunk_id:
           type: string
-          enum: [fact, event, decision, issue, question, preference, task, insight]
+          format: uuid
+          nullable: true
+        excerpt:
+          type: string
 
     QueryResponse:
       type: object
@@ -488,16 +492,28 @@ paths:
   /auth/login:
     get:
       operationId: authLogin
-      summary: Initiate WorkOS SSO login
+      summary: Get the authorization URL for SSO login
+      description: |
+        Returns a JSON object with `redirect_url`. The frontend navigates the
+        browser to this URL to begin the OAuth flow with WorkOS.
       security: []
       responses:
-        "302":
-          description: Redirect to WorkOS login page
+        "200":
+          description: Authorization URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
 
   /auth/callback:
     get:
       operationId: authCallback
       summary: Handle WorkOS SSO callback
+      description: |
+        Called by the browser after WorkOS redirects back. Exchanges the
+        authorization code for a JWT, then redirects the browser to the
+        frontend callback page with the token in a query parameter:
+        `{FRONTEND_URL}/auth/callback?token={jwt}`
       security: []
       parameters:
         - name: code
@@ -506,12 +522,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenResponse"
+        "302":
+          description: Redirects to frontend with JWT in query parameter
         "401":
           description: Invalid or expired code
           content:

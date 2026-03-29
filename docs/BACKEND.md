@@ -242,6 +242,17 @@ All external service clients live in `integrations/` and are injected into domai
 - Workspace and memory space access checks also live in Auth service — called by other domain services as needed
 - Access chain: user → workspace ownership → memory space scoping
 
+### Auth Bypass (Local Development)
+
+For local development, set `AUTH_BYPASS=True` (the default) in configuration. This skips WorkOS SSO entirely and authenticates all requests as a hardcoded dev user:
+
+- **Dev user ID:** `00000000-0000-0000-0000-000000000001`
+- **Seeding:** Run `python -m scripts.seed_dev_user` to create the dev user in the database
+- **Login flow:** `GET /auth/login` returns a redirect URL pointing to `/api/v1/auth/callback?code=dev`, which generates a real JWT for the dev user
+- **Request auth:** `get_current_user` dependency returns the dev user directly without checking the JWT
+
+Set `AUTH_BYPASS=False` and provide `WORKOS_API_KEY` / `WORKOS_CLIENT_ID` to enable real SSO.
+
 ### Error Handling
 
 - Domain-specific exceptions defined in each domain (e.g., `SourceNotFoundError`, `ExtractionFailedError`)

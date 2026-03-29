@@ -12,13 +12,13 @@
 
 | Layer | Technology | Rationale |
 |-------|-----------|-----------|
-| Framework | Next.js 14+ (App Router) | SSR/SSG flexibility, file-based routing, React Server Components |
+| Framework | Next.js 16 (App Router) | SSR/SSG flexibility, file-based routing, React Server Components |
 | UI Components | shadcn/ui | Composable, accessible, built on Radix primitives — copied into codebase, not a dependency |
-| Styling | Tailwind CSS | Utility-first, ships with shadcn, zero runtime overhead |
+| Styling | Tailwind CSS v4 | Utility-first, ships with shadcn, zero runtime overhead; CSS-based config (no `tailwind.config.js`) |
 | Server State | TanStack Query (React Query) | Caching, background refetching, optimistic updates, loading/error states |
 | Client State | React Context (auth only) | Minimal — no global state library for MVP |
 | API Client | Typed fetch wrapper | Thin wrapper around `fetch` with auth interceptors and error normalization |
-| Forms | React Hook Form + Zod | shadcn/ui form components are built on these |
+| Forms | React Hook Form + Zod v4 | shadcn/ui form components are built on these |
 | Mocking | MSW (Mock Service Worker) | Mock API responses during parallel development (conforms to API contract) |
 
 ### Architecture Principles
@@ -43,7 +43,7 @@ All authenticated routes live under the `(dashboard)` route group, which provide
 | `/auth/callback` | Auth Callback | Handle WorkOS redirect, store token, redirect to `/workspaces` |
 | `/workspaces` | Workspace List | View, create, and manage workspaces |
 | `/workspaces/[workspaceId]` | Memory Spaces List | View, create, and manage memory spaces within a workspace |
-| `/workspaces/[wId]/memory-spaces/[msId]` | Memory Space Detail | Primary working screen — tabbed interface with persistent query bar |
+| `/workspaces/[wId]/memory-spaces/[msId]` | Memory Space Detail | Primary working screen — tabbed interface (Sources, Records, Summary, Ask) |
 
 ### Route Groups
 
@@ -52,18 +52,15 @@ All authenticated routes live under the `(dashboard)` route group, which provide
 
 ### Memory Space Detail — Tabbed Layout
 
-The memory space detail page uses **client-side tabs** (not sub-routes) for Sources, Records, and Summary. Tab state is optionally synced to a query parameter (`?tab=sources`) for shareability without being a full sub-route.
+The memory space detail page uses **client-side tabs** (not sub-routes) for Sources, Records, Summary, and Ask. Tab state is synced to a query parameter (`?tab=sources`) for shareability without being a full sub-route.
 
-A persistent **query bar** sits in the header area above the tabs, always accessible regardless of the active tab. Query results appear in a slide-over panel.
+The **Ask** tab provides a dedicated query interface with suggested questions, markdown-rendered answers, and citation links. This replaces an earlier design that used a persistent query bar above the tabs.
 
 ```
 ┌──────────────────────────────────────────────────┐
 │  Breadcrumb: Workspaces > Acme Corp > Project X  │
-│  Memory Space Name + Description                 │
-│  ┌──────────────────────────────────────────────┐│
-│  │  Ask a question about this project...        ││
-│  └──────────────────────────────────────────────┘│
-│  [Sources]  [Records]  [Summary]                 │
+│  Memory Space Name + Description    [active]     │
+│  [Sources]  [Records]  [Summary]  [Ask]          │
 │  ┌──────────────────────────────────────────────┐│
 │  │                                              ││
 │  │           (active tab content)               ││
@@ -185,14 +182,14 @@ Each domain's `hooks.ts` exports TanStack Query hooks that wrap the domain's `ap
 |-----------|---------|
 | `LoginForm` | SSO sign-in button, initiates WorkOS redirect |
 | `AuthGuard` | Wraps authenticated routes; redirects to `/login` if no session |
-| `AuthProvider` | React Context provider; holds current user and token in memory |
+| `AuthProvider` | React Context provider; holds current user and token in localStorage |
 
 ### Workspace
 
 | Component | Purpose |
 |-----------|---------|
-| `WorkspaceList` | Grid of workspace cards with create button |
-| `WorkspaceCard` | Displays workspace name, description, memory space count |
+| `WorkspaceList` | Grid of workspace cards with create button; delete confirmation via `ConfirmDialog` |
+| `WorkspaceCard` | Displays workspace name, description, memory space count; dropdown menu with edit and delete actions |
 | `WorkspaceCreateDialog` | Modal form for creating a new workspace |
 
 ### Memory Space
@@ -200,20 +197,17 @@ Each domain's `hooks.ts` exports TanStack Query hooks that wrap the domain's `ap
 | Component | Purpose |
 |-----------|---------|
 | `MemorySpaceList` | Grid of memory space cards with status badges and create button |
-| `MemorySpaceCard` | Displays name, description, status, source/record counts |
+| `MemorySpaceCard` | Displays name, description, status with inline archive/activate toggle, edit, and delete |
 | `MemorySpaceCreateDialog` | Modal form for creating a new memory space |
-| `MemorySpaceDetail` | Tabbed container — orchestrates Sources, Records, Summary tabs |
-| `QueryBar` | Persistent search input for natural language questions |
-| `QueryResultPanel` | Slide-over displaying answer with citation links |
-| `SummaryDisplay` | Renders markdown summary content |
-| `GenerateSummaryButton` | Triggers one-pager or recent updates generation |
+| `SummaryPanel` | Summary tab — type selector (one-pager / recent updates), generate and regenerate, renders markdown |
+| `QueryPanel` | Ask tab — question input with suggestions, markdown answers, citation list with record type badges |
 
 ### Source
 
 | Component | Purpose |
 |-----------|---------|
-| `SourceList` | Table/list of sources with type icons, titles, processing status badges |
-| `SourceCard` | Individual source row — title, type, status, timestamp |
+| `SourceList` | Table/list of sources with type icons, titles, processing status badges; uses smart polling via `useSources` hook |
+| `SourceCard` | Individual source row — title, type, status badge (with animated spinner for pending/processing), timestamp, error display |
 | `UploadDialog` | Two-mode dialog: "Quick Note" (text input) or "Upload Document" (file picker with drag-and-drop) |
 | `SourceDetail` | Slide-over or expandable panel showing full content and linked records |
 
@@ -247,7 +241,7 @@ There is no separate client-side store for server data. Components access data o
 The only client-side state is the auth context, which holds:
 
 - Current authenticated user
-- JWT access token (stored in memory, not localStorage)
+- JWT access token (stored in localStorage for persistence across page refreshes)
 - Auth state (loading, authenticated, unauthenticated)
 
 This is provided by `AuthProvider` and consumed via `useCurrentUser()` and the API client (which reads the token for request headers).
@@ -285,7 +279,7 @@ Use Server Components for **layout, navigation, and initial data fetching**. Use
 | What | Why Client |
 |------|-----------|
 | All domain `components/` | Use TanStack Query hooks, handle events, manage form state |
-| `AuthProvider` | Manages token in memory, reacts to auth state |
+| `AuthProvider` | Manages token in localStorage, reacts to auth state |
 | `Providers` wrapper | `QueryClientProvider` + `AuthProvider` must be client components |
 | Forms and dialogs | Interactive input, validation, submission |
 | Tab navigation | `useState` for active tab |
@@ -318,7 +312,7 @@ The root layout wraps children in a `Providers` client component that sets up `Q
 1. User clicks "Sign in" → frontend redirects to WorkOS SSO via `GET /api/v1/auth/login`
 2. WorkOS redirects back to `/auth/callback` with an authorization code
 3. Callback page exchanges code via `GET /api/v1/auth/callback` → receives JWT
-4. Token is stored in memory (via `AuthProvider` context) — not in localStorage
+4. Token is stored in localStorage (via `AuthProvider` context) for persistence across page refreshes
 5. API client reads token from context and attaches as `Authorization: Bearer <token>` header
 6. `AuthGuard` component checks auth state on dashboard routes; redirects to `/login` if unauthenticated
 
@@ -349,6 +343,28 @@ All list hooks accept `PaginationParams` (`page`, `page_size`) and return `Pagin
 - **Tab switches / filter changes** — TanStack Query shows cached data immediately, refetches in background
 - **Mutations** — loading state on submit buttons, optimistic updates where appropriate (e.g., record status change)
 - **Long operations** — summary generation shows a progress/pending state since LLM calls may take several seconds
+
+### Smart Source Polling
+
+The `useSources` hook automatically polls when any source has `pending` or `processing` status:
+
+- **Poll interval:** 3 seconds
+- **Timeout:** 60 seconds (stops polling to prevent indefinite requests)
+- **Trigger:** polling starts when any source in the list has a non-terminal status, stops when all sources reach `completed` or `failed`
+- **Manual reset:** `resetPolling()` returned by the hook restarts the polling timer (used after uploading a new source)
+
+### Destructive Action Confirmation
+
+A shared `ConfirmDialog` component (`shared/components/confirm-dialog.tsx`) wraps shadcn/ui's `AlertDialog` to provide consistent confirmation for destructive actions (delete workspace, delete memory space, delete source). Each list component manages its own "deleting" state and renders the dialog conditionally.
+
+### Theming
+
+Dark mode infrastructure is in place via `next-themes`:
+
+- `suppressHydrationWarning` set on `<html>` element for theme provider hydration
+- Sonner toast component reads `useTheme()` to match toast styling to the active theme
+- shadcn/ui components use CSS variables that support both light and dark modes
+- No user-facing theme toggle is implemented yet — defaults to system preference
 
 ---
 
@@ -448,14 +464,14 @@ frontend/
 │   │   └── utils/
 │   │       └── format.ts                # Date formatting, etc.
 │   │
-│   └── lib/                              # shadcn/ui managed directory
-│       ├── utils.ts                      # cn() helper
-│       └── components/
-│           └── ui/                       # shadcn-generated components (button, dialog, etc.)
+│   ├── lib/
+│   │   └── utils.ts                      # cn() helper
+│   │
+│   └── components/
+│       └── ui/                           # shadcn-generated components (button, dialog, etc.)
 │
 ├── public/
 ├── next.config.ts
-├── tailwind.config.ts
 ├── tsconfig.json
 ├── components.json                       # shadcn/ui configuration
 ├── package.json
@@ -491,7 +507,7 @@ MSW intercepts `fetch` calls at the network level and returns mock responses. Mo
 | Voice input | Add "Record Audio" option to `UploadDialog`; transcription handled by backend |
 | Semantic search | Add search endpoint to memory-space domain; search bar doubles as semantic search input |
 | Offline support | TanStack Query persistence plugin for cached data |
-| Dark mode | Tailwind `dark:` variants; shadcn/ui supports dark mode out of the box |
+| Dark mode toggle | Infrastructure is in place (see §9 Theming); add a user-facing toggle component |
 | Multi-user workspaces | Add workspace members list, invite flow; role-based UI visibility |
 | Global state library | Introduce Zustand if complex cross-domain client state emerges |
 | E2E testing | Playwright for critical user flows (login → upload → view records) |

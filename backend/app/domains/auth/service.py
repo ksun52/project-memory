@@ -87,7 +87,12 @@ def login() -> dict:
 
 
 def callback(code: str, db: Session) -> dict:
-    """Exchange auth code for user + JWT. Returns redirect info."""
+    """Exchange auth code for user + JWT. Returns redirect info.
+
+    TODO(low): Pass the token in a URL fragment (#token=...) instead of a query
+    parameter (?token=...) to prevent it from leaking in Referer headers and
+    server access logs.
+    """
     if settings.AUTH_BYPASS:
         token = create_access_token(DEV_USER_ID)
         return {

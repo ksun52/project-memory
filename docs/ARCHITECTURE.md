@@ -19,12 +19,12 @@
 - View **source provenance** (trace records back to original input)
 
 ### Decisions
-- **Framework:** Next.js 14+ (App Router)
+- **Framework:** Next.js 16 (App Router)
 - **UI Components:** shadcn/ui (Radix-based, copied into codebase)
-- **Styling:** Tailwind CSS
+- **Styling:** Tailwind CSS v4
 - **Server State:** TanStack Query (React Query)
 - **Client State:** React Context (auth only — no global state library for MVP)
-- **Forms:** React Hook Form + Zod
+- **Forms:** React Hook Form + Zod v4
 - **Mocking:** MSW (Mock Service Worker) for parallel development
 - **Detailed Frontend Plan:** See [FRONTEND.md](./FRONTEND.md)
 
@@ -107,8 +107,8 @@ One-Pager Request → Filter/rank memory records → LLM Summarization → Outpu
 ```
 
 ### Decisions
-- **LLM Provider:** TBD (OpenAI or Anthropic)
-- **Embedding Model:** OpenAI text-embedding-3-small (tentative)
+- **LLM Provider:** OpenAI (`gpt-4o-mini`)
+- **Embedding Model:** OpenAI `text-embedding-3-small`
 - **Prompt Management:** Versioned prompt templates in code (`app/domains/ai/prompts/`)
 - **Detailed AI Pipeline Plan:** See [AI_LAYER.md](./AI_LAYER.md)
 

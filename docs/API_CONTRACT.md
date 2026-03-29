@@ -131,15 +131,21 @@ These enum values are referenced across multiple endpoints.
 
 ### `GET /auth/login`
 
-Initiate WorkOS SSO. Redirects the browser to the WorkOS login page.
+Returns the authorization URL for the frontend to redirect to. The frontend calls this endpoint via `fetch`, then navigates the browser to the returned URL.
 
-**Response:** `302 Redirect` to WorkOS
+**Response:** `200 OK`
+
+```json
+{
+  "redirect_url": "https://api.workos.com/sso/authorize?..."
+}
+```
 
 ---
 
 ### `GET /auth/callback?code={code}`
 
-Handle WorkOS callback after successful authentication.
+Handle WorkOS callback after successful authentication. The browser lands here after WorkOS redirects back. The backend exchanges the code for a JWT, then **redirects the browser** to the frontend callback page with the token in a query parameter.
 
 **Query Parameters:**
 
@@ -147,15 +153,9 @@ Handle WorkOS callback after successful authentication.
 |-----------|------|----------|
 | `code` | string | Yes |
 
-**Response:** `200 OK`
+**Response:** `302 Redirect` to `{FRONTEND_URL}/auth/callback?token={jwt}`
 
-```json
-{
-  "access_token": "eyJhbGci...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
+The frontend callback page reads the `token` query parameter, stores it, and redirects to `/workspaces`.
 
 ---
 
